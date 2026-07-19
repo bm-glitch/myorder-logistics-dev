@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>출고요청 대장 · 프로토타입</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16181B;
+    --ink-60:#5B6167;
+    --ink-35:#9AA1A8;
+    --paper:#FAFAF8;
+    --card:#FFFFFF;
+    --rule:#E3E1DA;
+    --rule-2:#CFCCC2;
+    --stamp-blue:#1F5FA8;
+    --stamp-green:#1F7A4C;
+    --stamp-red:#C4342B;
+    --stamp-amber:#9A6B12;
+    --pencil:#8A9096;
+    --kraft:#C8A87C;
+    --shadow:0 1px 0 rgba(22,24,27,.06), 0 6px 18px -12px rgba(22,24,27,.35);
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --sans:'Pretendard', -apple-system, system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.5;
+    padding-bottom:88px;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- 상단 ---------- */
+  header{
+    position:sticky;top:0;z-index:40;
+    background:var(--paper);
+    border-bottom:1px solid var(--rule);
+  }
+  .bar{
+    display:flex;align-items:baseline;gap:10px;
+    padding:14px 16px 10px;
+  }
+  .title{font-size:17px;font-weight:700;letter-spacing:-.02em;margin:0}
+  .proto{
+    font-family:var(--mono);font-size:9px;font-weight:700;
+    letter-spacing:.14em;color:var(--kraft);
+    border:1px solid var(--kraft);border-radius:2px;
+    padding:2px 5px;
+  }
+  .clock{
+    margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink-35);
+  }
+
+  /* 일/주/월 탭 */
+  .tabs{display:flex;gap:0;padding:0 12px;}
+  .tab{
+    flex:1;appearance:none;background:none;border:0;
+    padding:10px 4px 12px;cursor:pointer;
+    font-family:var(--sans);font-size:14px;font-weight:600;
+    color:var(--ink-35);
+    border-bottom:2px solid transparent;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:color .15s;
+  }
+  .tab:hover{color:var(--ink-60)}
+  .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+  .tab .n{
+    font-family:var(--mono);font-size:11px;font-weight:700;
+    background:var(--rule);color:var(--ink-60);
+    border-radius:9px;padding:1px 6px;min-width:20px;text-align:center;
+  }
+  .tab[aria-selected="true"] .n{background:var(--ink);color:var(--paper)}
+  .tab.has-late[aria-selected="true"] .n,
+  .tab.has-late .n{background:var(--stamp-red);color:#fff}
+
+  /* 통합/개인 */
+  .subtabs{
+    display:flex;gap:6px;padding:10px 16px 12px;
+    border-top:1px solid var(--rule);
+    background:var(--card);
+  }
+  .subtab{
+    appearance:none;cursor:pointer;
+    font-family:var(--sans);font-size:12.5px;font-weight:600;
+    padding:6px 12px;border-radius:999px;
+    border:1px solid var(--rule-2);background:transparent;color:var(--ink-60);
+    display:inline-flex;align-items:center;gap:6px;
+    transition:.15s;
+  }
+  .subtab[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+  .subtab .c{font-family:var(--mono);font-size:10px;opacity:.75}
+
+  /* ---------- 리스트 ---------- */
+  main{padding:14px 12px 0}
+  .daygroup{margin-bottom:20px}
+  .daylabel{
+    display:flex;align-items:center;gap:8px;
+    font-family:var(--mono);font-size:10px;font-weight:700;
+    letter-spacing:.12em;color:var(--ink-35);
+    margin:0 4px 8px;
+  }
+  .daylabel::after{content:"";flex:1;height:1px;background:var(--rule)}
+
+  .row{
+    position:relative;
+    display:grid;
+    grid-template-columns:52px 1fr;
+    background:var(--card);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    margin-bottom:8px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    transition:border-color .15s, opacity .2s;
+  }
+  .row.late{border-color:var(--stamp-red);border-width:1.5px}
+  .row.done{opacity:.5}
+  .row.hold{border-color:var(--stamp-amber);border-width:1.5px;background:#FFFDF7}
+
+  /* D-day 스탬프 (시그니처) */
+  .dday{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:1px;
+    border-right:1px solid var(--rule);
+    background:linear-gradient(180deg,#fff, #F6F5F1);
+    font-family:var(--mono);
+  }
+  .dday .num{font-size:17px;font-weight:700;letter-spacing:-.04em;line-height:1}
+  .dday .unit{font-size:8px;letter-spacing:.1em;color:var(--ink-35)}
+  .row.late .dday{background:var(--stamp-red);border-right-color:var(--stamp-red)}
+  .row.late .dday .num,.row.late .dday .unit{color:#fff}
+  .row.today .dday .num{color:var(--stamp-red)}
+  .row.hold .dday{background:repeating-linear-gradient(135deg,#FFF9EC,#FFF9EC 5px,#FDF1D8 5px,#FDF1D8 10px);border-right-color:var(--stamp-amber)}
+  .row.hold .dday .num{color:var(--stamp-amber)}
+  .row.hold .dday .unit{color:var(--stamp-amber);opacity:.8}
+
+  .body{padding:10px 12px 10px 11px;min-width:0}
+  .line1{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px}
+  .sr{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--ink-35);letter-spacing:.03em}
+  .team{
+    font-size:10.5px;font-weight:700;color:var(--ink-60);
+    background:var(--rule);border-radius:3px;padding:1px 5px;
+  }
+  .who{font-size:11.5px;color:var(--ink-60)}
+  .assignee{
+    font-size:10px;font-weight:700;color:#fff;background:var(--kraft);
+    border-radius:3px;padding:1px 5px;letter-spacing:-.01em;
+  }
+
+  .item{font-size:15px;font-weight:700;letter-spacing:-.02em;margin:1px 0 2px;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row.done .item{text-decoration:line-through;text-decoration-thickness:1.5px}
+  .opt{font-size:12px;font-weight:500;color:var(--ink-60)}
+  .qty{font-family:var(--mono);font-size:12px;font-weight:700}
+
+  /* 재고 표시 (이지어드민 연동) */
+  .stockbox{
+    display:flex;align-items:center;gap:8px;
+    margin:5px 0 2px;padding:5px 8px;
+    border:1px solid var(--rule);border-radius:5px;background:#F7FAF8;
+  }
+  .stockbox.short{background:#FBEDEC;border-color:#EFC5C1}
+  .stockbox.exact{background:#FEFBEE;border-color:#EBD9A8}
+  .stk{display:flex;align-items:baseline;gap:4px;font-family:var(--mono);flex:none}
+  .stk .lab{font-size:9px;letter-spacing:.06em;color:var(--ink-35);font-family:var(--sans);font-weight:600}
+  .stk .v{font-size:14px;font-weight:700;line-height:1}
+  .stk .req .v{color:var(--ink-60)}
+  .stk.avail .v{color:var(--stamp-green)}
+  .stockbox.short .stk.avail .v{color:var(--stamp-red)}
+  .stockbox.exact .stk.avail .v{color:var(--stamp-amber)}
+  .gauge{flex:1;height:6px;border-radius:3px;background:var(--rule);overflow:hidden;min-width:40px}
+  .gauge i{display:block;height:100%;background:var(--stamp-green);border-radius:3px}
+  .stockbox.short .gauge i{background:var(--stamp-red)}
+  .stockbox.exact .gauge i{background:var(--stamp-amber)}
+  .stk.sku{margin-left:auto;font-size:10px;color:var(--ink-35);font-weight:400}
+  .shorttag{
+    font-family:var(--sans);font-size:10px;font-weight:700;color:#fff;
+    background:var(--stamp-red);border-radius:3px;padding:2px 6px;flex:none;
+  }
+  .exacttag{background:var(--stamp-amber)}
+  .qhold{
+    flex:none;appearance:none;cursor:pointer;
+    font-family:var(--sans);font-size:10.5px;font-weight:700;
+    color:var(--stamp-red);background:#fff;
+    border:1px solid var(--stamp-red);border-radius:4px;padding:3px 8px;
+    transition:.15s;
+  }
+  .qhold:hover{background:var(--stamp-red);color:#fff}
+  .calcbtn{
+    flex:none;appearance:none;cursor:pointer;
+    width:20px;height:20px;border-radius:50%;padding:0;
+    border:1px solid var(--rule-2);background:#fff;color:var(--ink-35);
+    font-size:11px;font-weight:700;line-height:1;
+    display:grid;place-items:center;transition:.15s;
+  }
+  .calcbtn:hover{border-color:var(--ink);color:var(--ink)}
+  .calcrow{
+    margin:0 0 2px;padding:9px 10px;
+    background:#F4F6F8;border:1px solid var(--rule);border-top:0;
+    border-radius:0 0 5px 5px;
+  }
+  .calcline{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:var(--mono)}
+  .ci{display:flex;flex-direction:column;align-items:center;line-height:1.15}
+  .ci b{font-size:15px;font-weight:700}
+  .ci i{font-style:normal;font-size:9px;color:var(--ink-35);font-family:var(--sans);white-space:nowrap}
+  .op{font-size:13px;color:var(--ink-35);font-weight:700}
+  .ci.res b{color:var(--stamp-green)}
+  .ci.res i{color:var(--stamp-green);font-weight:700}
+  .ci.res.r-short b,.ci.res.r-short i{color:var(--stamp-red)}
+  .calcsrc{margin-top:6px;font-family:var(--mono);font-size:8.5px;color:var(--ink-35);letter-spacing:.03em}
+  .trap{
+    font-size:11px;font-weight:600;color:var(--stamp-red);
+    background:#FBEDEC;border:1px solid #EFC5C1;border-radius:4px;
+    padding:5px 8px;margin-bottom:8px;line-height:1.4;
+  }
+
+  .line3{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px}
+  .meta{font-size:11.5px;color:var(--ink-35);display:flex;align-items:center;gap:4px}
+  .meta b{color:var(--ink-60);font-weight:600}
+  .note{
+    font-size:11.5px;color:var(--ink-60);
+    background:#FBF8F1;border-left:2px solid var(--kraft);
+    padding:3px 7px;border-radius:0 3px 3px 0;margin-top:6px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+
+  /* 상태 + 액션 */
+  .actions{display:flex;align-items:center;gap:6px;margin-top:9px}
+  .status{
+    appearance:none;cursor:pointer;
+    font-family:var(--sans);font-size:11px;font-weight:700;
+    padding:4px 9px;border-radius:4px;border:1px solid;
+    display:inline-flex;align-items:center;gap:5px;
+    transition:.15s;
+  }
+  .status .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+  .st-wait{color:var(--pencil);border-color:var(--rule-2);background:#fff}
+  .st-prog{color:var(--stamp-blue);border-color:var(--stamp-blue);background:#EEF4FB}
+  .st-done{color:var(--stamp-green);border-color:var(--stamp-green);background:#EDF6F1}
+  .st-hold{color:var(--stamp-amber);border-color:var(--stamp-amber);background:#FDF6E7}
+
+  /* 보류 사유 배너 */
+  .holdbar{
+    display:flex;align-items:center;gap:6px;
+    margin-top:7px;padding:5px 8px;
+    background:#FDF6E7;border:1px solid #EBD9A8;border-radius:4px;
+    font-size:11.5px;color:var(--stamp-amber);font-weight:600;
+  }
+  .holdbar .pz{font-family:var(--mono);font-size:9px;letter-spacing:.1em;
+    background:var(--stamp-amber);color:#fff;border-radius:2px;padding:1px 4px;flex:none}
+  .holdbar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .holdbtn{
+    appearance:none;cursor:pointer;
+    font-family:var(--sans);font-size:11px;font-weight:700;
+    padding:4px 9px;border-radius:4px;
+    border:1px dashed var(--rule-2);background:#fff;color:var(--ink-35);
+    transition:.15s;
+  }
+  .holdbtn:hover{border-color:var(--stamp-amber);color:var(--stamp-amber)}
+  .holdbtn[aria-pressed="true"]{border-style:solid;border-color:var(--stamp-amber);
+    background:var(--stamp-amber);color:#fff}
+
+  .check{
+    appearance:none;cursor:pointer;
+    width:28px;height:28px;border-radius:5px;
+    border:1.5px solid var(--rule-2);background:#fff;
+    display:grid;place-items:center;padding:0;
+    transition:.15s;
+  }
+  .check svg{width:15px;height:15px;stroke:var(--rule-2);stroke-width:3;fill:none;
+             stroke-linecap:round;stroke-linejoin:round;transition:.15s}
+  .check[aria-pressed="true"]{background:var(--stamp-green);border-color:var(--stamp-green)}
+  .check[aria-pressed="true"] svg{stroke:#fff}
+
+  .send{
+    margin-left:auto;appearance:none;cursor:pointer;
+    font-family:var(--sans);font-size:11.5px;font-weight:700;
+    padding:6px 12px;border-radius:5px;
+    border:1px solid var(--ink);background:var(--ink);color:var(--paper);
+    display:inline-flex;align-items:center;gap:5px;
+    transition:.15s;
+  }
+  .send:disabled{background:#fff;color:var(--ink-35);border-color:var(--rule);cursor:not-allowed}
+  .send.sent{background:#fff;color:var(--stamp-green);border-color:var(--stamp-green)}
+  .send svg{width:12px;height:12px;fill:currentColor}
+
+  /* 빈 상태 */
+  .empty{
+    text-align:center;padding:56px 20px;color:var(--ink-35);
+  }
+  .empty .mk{font-family:var(--mono);font-size:28px;color:var(--rule-2);margin-bottom:8px}
+  .empty p{margin:0;font-size:13px}
+
+  /* 토스트 */
+  #toast{
+    position:fixed;left:50%;bottom:96px;transform:translate(-50%,14px);
+    background:var(--ink);color:var(--paper);
+    font-size:12.5px;font-weight:600;
+    padding:10px 16px;border-radius:6px;
+    display:flex;align-items:center;gap:8px;
+    opacity:0;pointer-events:none;transition:.22s;
+    z-index:60;max-width:88vw;
+    box-shadow:0 8px 24px -8px rgba(0,0,0,.5);
+  }
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+  #toast .slack{width:13px;height:13px;flex:none}
+
+  /* 하단 요약바 */
+  .footbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:var(--card);border-top:1px solid var(--rule-2);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    display:flex;align-items:center;gap:14px;
+  }
+  .stat{display:flex;flex-direction:column;gap:1px}
+  .stat .v{font-family:var(--mono);font-size:16px;font-weight:700;line-height:1}
+  .stat .k{font-size:9.5px;color:var(--ink-35);letter-spacing:.02em}
+  .stat.late .v{color:var(--stamp-red)}
+  .stat.done .v{color:var(--stamp-green)}
+  .stat.hold .v{color:var(--stamp-amber)}
+  .sep{width:1px;height:24px;background:var(--rule)}
+  .src{
+    margin-left:auto;text-align:right;
+    font-family:var(--mono);font-size:8.5px;color:var(--ink-35);line-height:1.35;
+  }
+
+  /* 보류 사유 선택 시트 */
+  #scrim{
+    position:fixed;inset:0;background:rgba(22,24,27,.45);z-index:70;
+    opacity:0;pointer-events:none;transition:.2s;
+  }
+  #scrim.on{opacity:1;pointer-events:auto}
+  #sheet{
+    position:fixed;left:50%;bottom:0;width:100%;max-width:560px;
+    transform:translate(-50%,100%);
+    background:var(--card);z-index:71;
+    border-radius:14px 14px 0 0;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+    transition:transform .24s cubic-bezier(.2,.8,.2,1);
+    box-shadow:0 -8px 32px -12px rgba(0,0,0,.4);
+  }
+  #sheet.on{transform:translate(-50%,0)}
+  #sheet h2{margin:0 0 3px;font-size:15px;font-weight:700;letter-spacing:-.02em}
+  #sheet .sub{margin:0 0 14px;font-size:12px;color:var(--ink-35)}
+  #sheet .sub b{font-family:var(--mono);color:var(--ink-60)}
+  .reason{
+    display:block;width:100%;text-align:left;
+    appearance:none;cursor:pointer;
+    font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink);
+    padding:12px 13px;margin-bottom:7px;
+    border:1px solid var(--rule-2);border-radius:7px;background:#fff;
+    transition:.15s;
+  }
+  .reason:hover{border-color:var(--stamp-amber);background:#FFFDF7}
+  .reason small{display:block;font-weight:500;font-size:11px;color:var(--ink-35);margin-top:2px}
+  .cancel{
+    width:100%;appearance:none;cursor:pointer;margin-top:5px;
+    font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink-35);
+    padding:11px;border:0;background:none;
+  }
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  @media (min-width:640px){
+    body{max-width:560px;margin:0 auto;border-left:1px solid var(--rule);border-right:1px solid var(--rule);min-height:100vh}
+    .footbar{max-width:560px;left:50%;transform:translateX(-50%)}
+  }
+  :focus-visible{outline:2px solid var(--stamp-blue);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <h1 class="title">출고요청 대장</h1>
+    <span class="proto">PROTO</span>
+    <span class="clock" id="clock"></span>
+  </div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="subtabs" id="subtabs"></div>
+</header>
+
+<main id="list"></main>
+
+<div class="footbar">
+  <div class="stat late"><span class="v" id="s-late">0</span><span class="k">지연</span></div>
+  <div class="sep"></div>
+  <div class="stat"><span class="v" id="s-wait">0</span><span class="k">미처리</span></div>
+  <div class="sep"></div>
+  <div class="stat hold"><span class="v" id="s-hold">0</span><span class="k">보류</span></div>
+  <div class="sep"></div>
+  <div class="stat done"><span class="v" id="s-done">0</span><span class="k">완료</span></div>
+  <div class="src">MOCK DATA<br>연동 전 화면</div>
+</div>
+
+<div id="scrim"></div>
+<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h">
+  <h2 id="sheet-h">보류 사유</h2>
+  <p class="sub" id="sheet-sub"></p>
+  <div id="reasons"></div>
+  <button class="cancel" data-close>취소</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const TODAY = new Date('2026-07-17T09:00:00+09:00');
+
+// ── 목업 데이터 (이사님 정의서 11컬럼 + 옵션/대상 추가) ──
+const DATA = [
+  {sr:'SR-0148', sku:'JP-PK-M', phys:640, inv:180, pend:60, recv:'07-17 08:12', team:'마케팅팀', by:'김서연', item:'주얼패치', opt:'핑크 / M', qty:200, want:'2026-07-17', to:'부산 팝업스토어', note:'팝업 오픈일 맞춰 오전 도착 필요', status:'진행중', scope:'team', assignee:null},
+  {sr:'SR-0147', sku:'DS-BK', phys:5, inv:5, pend:0, recv:'07-16 17:40', team:'영업3팀', by:'박준호', item:'디스플레이 거치대', opt:'블랙', qty:12, want:'2026-07-16', to:'대전 지점', note:'입고 지연 — 재고 0', status:'보류', hold:'재고 부족', scope:'team', assignee:null},
+  {sr:'SR-0149', sku:'PS-SV', phys:35, inv:20, pend:8, recv:'07-15 09:10', team:'영업3팀', by:'박준호', item:'포스터 스탠드', opt:'실버', qty:8, want:'2026-07-15', to:'대구 지점', note:'요청 후 연락 없음 — 실제 누락 건', status:'대기', scope:'team', assignee:null},
+  {sr:'SR-0146', sku:'PC-BG-L', phys:18, inv:4, pend:2, recv:'07-17 09:05', team:'CS팀', by:'이하늘', item:'교환용 파우치', opt:'베이지 / L', qty:3, want:'2026-07-17', to:'고객 직배송', note:'클레임 건, 오늘 중 발송', status:'대기', scope:'person', assignee:'백승원'},
+  {sr:'SR-0145', sku:'FB-NV', phys:5, inv:0, pend:0, recv:'07-16 11:20', team:'디자인팀', by:'최민지', item:'샘플 원단', opt:'네이비', qty:5, want:'2026-07-17', to:'본사 3F', note:'', status:'완료', scope:'person', assignee:'백승원'},
+  {sr:'SR-0144', sku:'LF-A5', phys:900, inv:0, pend:0, recv:'07-15 14:02', team:'영업1팀', by:'정우성', item:'홍보 리플렛', opt:'—', qty:1500, want:'2026-07-20', to:'수원 창고', note:'박스 단위로 분리 포장 요청', status:'대기', scope:'team', assignee:null},
+  {sr:'SR-0143', sku:'GD-SET5', phys:210, inv:40, pend:30, recv:'07-16 09:33', team:'마케팅팀', by:'김서연', item:'굿즈 세트', opt:'혼합 / 5종', qty:80, want:'2026-07-22', to:'서울 코엑스', note:'행사 전날 도착 기준', status:'진행중', scope:'team', assignee:null},
+  {sr:'SR-0142', sku:'CP-WH', phys:74, inv:10, pend:0, recv:'07-15 16:47', team:'경영지원팀', by:'한지민', item:'명함 용지', opt:'화이트', qty:20, want:'2026-07-23', to:'본사 2F', note:'', status:'대기', scope:'person', assignee:'백승원'},
+  {sr:'SR-0141', sku:'POP-A2', phys:52, inv:8, pend:4, recv:'07-14 10:15', team:'영업2팀', by:'오세훈', item:'매대 POP', opt:'A2 사이즈', qty:40, want:'2026-08-03', to:'광주 지점', note:'8월 프로모션용, 여유 있음', status:'대기', scope:'team', assignee:null},
+  {sr:'SR-0140', sku:'PT-WH-S', phys:9, inv:0, pend:5, recv:'07-13 13:50', team:'신사업팀', by:'류승범', item:'프로토 샘플', opt:'화이트 / S', qty:2, want:'2026-08-10', to:'파트너사', note:'NDA 대상, 별도 포장', status:'대기', scope:'person', assignee:'백승원'},
+  {sr:'SR-0139', sku:'RB-STD', phys:120, inv:30, pend:10, recv:'07-16 15:11', team:'CS팀', by:'이하늘', item:'반품 회수 박스', opt:'—', qty:30, want:'2026-07-18', to:'인천 물류센터', note:'', status:'대기', scope:'team', assignee:null},
+];
+
+// ── 로직: 출고 희망일 하나로 일/주/월 파생 ──
+const d0 = d => {const x=new Date(d+'T00:00:00+09:00');x.setHours(0,0,0,0);return x;};
+const t0 = (()=>{const x=new Date(TODAY);x.setHours(0,0,0,0);return x;})();
+const dday = r => Math.round((d0(r.want)-t0)/864e5);
+const bucket = r => {const d=dday(r); return d<=0?'day':(d<=7?'week':'month');};
+
+let TAB='day', SCOPE='team';
+const state = new Map(DATA.map(r=>[r.sr,{status:r.status, checked:r.status==='완료', sent:false, hold:r.hold||null}]));
+
+// 보류 사유 — 물류팀이 통제 못 하는 원인만. 여기 없으면 그건 누락임.
+const REASONS = [
+  {k:'재고 부족',      d:'재고가 없어 출고 불가 · 입고 대기 중'},
+  {k:'입고 지연',      d:'발주는 했으나 아직 안 들어옴'},
+  {k:'요청 정보 부족', d:'품목·수량·수령처 확인 필요'},
+  {k:'요청팀 확인 대기', d:'요청한 쪽에 되물었고 답 기다리는 중'},
+  {k:'__etc__',        d:'위에 없는 사유 · 직접 입력'},
+];
+
+// 에스컬레이션: 희망일 +2일 경과 & '대기'. 보류는 정지.
+const willEscalate = r => state.get(r.sr).status==='대기' && dday(r) <= -2;
+
+const BUCKETS=[{k:'day',t:'일별'},{k:'week',t:'주간'},{k:'month',t:'월간'}];
+const SCOPES=[{k:'team',t:'물류 통합'},{k:'person',t:'개인 요청'}];
+
+function view(){return DATA.filter(r=>bucket(r)===TAB && r.scope===SCOPE);}
+
+function renderTabs(){
+  document.getElementById('tabs').innerHTML = BUCKETS.map(b=>{
+    const rs=DATA.filter(r=>bucket(r)===b.k && r.scope===SCOPE);
+    const open=rs.filter(r=>!['완료','보류'].includes(state.get(r.sr).status)).length;
+    const late=rs.some(r=>dday(r)<0 && !['완료','보류'].includes(state.get(r.sr).status));
+    return `<button class="tab${late?' has-late':''}" role="tab" aria-selected="${TAB===b.k}" data-tab="${b.k}">
+      ${b.t}<span class="n">${open}</span></button>`;
+  }).join('');
+  document.getElementById('subtabs').innerHTML = SCOPES.map(s=>{
+    const n=DATA.filter(r=>r.scope===s.k && !['완료','보류'].includes(state.get(r.sr).status)).length;
+    return `<button class="subtab" aria-pressed="${SCOPE===s.k}" data-scope="${s.k}">
+      ${s.t}<span class="c">${n}</span></button>`;
+  }).join('');
+}
+
+const CHK=`<svg viewBox="0 0 24 24"><polyline points="4 12 9.5 17.5 20 6.5"/></svg>`;
+const SND=`<svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>`;
+const SLK=`<svg class="slack" viewBox="0 0 24 24" fill="#E01E5A"><path d="M6 15a2 2 0 1 1-2-2h2v2zm1 0a2 2 0 0 1 4 0v5a2 2 0 1 1-4 0v-5z"/><path fill="#36C5F0" d="M9 6a2 2 0 1 1 2 2H9V6zm0 1a2 2 0 0 1 0 4H4a2 2 0 1 1 0-4h5z"/><path fill="#2EB67D" d="M18 9a2 2 0 1 1 2 2h-2V9zm-1 0a2 2 0 0 1-4 0V4a2 2 0 1 1 4 0v5z"/><path fill="#ECB22E" d="M15 18a2 2 0 1 1-2-2h2v2zm0-1a2 2 0 0 1 0-4h5a2 2 0 1 1 0 4h-5z"/></svg>`;
+
+function stockBox(r){
+  const phys=r.phys, inv=r.inv, pend=r.pend, q=r.qty;
+  const avail = phys - inv - pend;          // 가용재고 = 현재고 − 송장대기 − 미처리
+  const short = avail < q;
+  const exact = avail >= q && avail < q*1.2; // 여유 20% 미만이면 주의
+  const held = state.get(r.sr).status==='보류';
+  const done = state.get(r.sr).status==='완료';
+  const cls = short?'short':(exact?'exact':'');
+  const pct = q===0?0:Math.max(0,Math.min(100, Math.round(avail/q*100)));
+  const tag = short
+    ? `<span class="shorttag">부족 ${(q-avail).toLocaleString()}</span>`
+    : (exact ? `<span class="shorttag exacttag">여유 ${(avail-q).toLocaleString()}</span>` : '');
+  const quick = (short && !held && !done)
+    ? `<button class="qhold" data-act="qhold">재고부족 보류</button>` : '';
+  // 전산 현재고만 보면 충분한데 가용으로는 부족한 경우 → 경고 강조
+  const trap = (phys >= q && avail < q);
+  return `<div class="stockbox ${cls}" data-sr="${r.sr}">
+    <span class="stk avail"><span class="lab">가용</span><span class="v">${avail.toLocaleString()}</span></span>
+    <span class="stk req"><span class="lab">요청</span><span class="v">${q.toLocaleString()}</span></span>
+    <span class="gauge"><i style="width:${pct}%"></i></span>
+    ${tag}
+    ${quick}
+    <button class="calcbtn" data-act="calc" aria-label="가용재고 계산식 보기">﹖</button>
+    <span class="stk sku">${r.sku}</span>
+  </div>
+  <div class="calcrow" id="calc-${r.sr}" hidden>
+    ${trap?`<div class="trap">⚠ 전산 현재고(${phys.toLocaleString()})만 보면 충분하지만, 출고 예약분을 빼면 실제로는 부족합니다.</div>`:''}
+    <div class="calcline">
+      <span class="ci"><b>${phys.toLocaleString()}</b><i>현재고</i></span>
+      <span class="op">−</span>
+      <span class="ci"><b>${inv.toLocaleString()}</b><i>송장 대기</i></span>
+      <span class="op">−</span>
+      <span class="ci"><b>${pend.toLocaleString()}</b><i>미처리 접수</i></span>
+      <span class="op">=</span>
+      <span class="ci res ${short?'r-short':''}"><b>${avail.toLocaleString()}</b><i>가용재고</i></span>
+    </div>
+    <div class="calcsrc">이지어드민 실시간 · SKU ${r.sku}</div>
+  </div>`;
+}
+
+function row(r){
+  const st=state.get(r.sr), d=dday(r);
+  const done=st.status==='완료';
+  const held=st.status==='보류';
+  const late=d<0 && !done && !held;          // 보류는 지연으로 세지 않음
+  const esc=willEscalate(r);
+  const cls=['row', late?'late':'', done?'done':'', held?'hold':'',
+             (d===0&&!done&&!held)?'today':''].filter(Boolean).join(' ');
+  const num = d<0 ? `+${-d}` : (d===0?'0':`${d}`);
+  const unit = held ? '정지' : (d<0 ? '일 지연' : (d===0?'오늘':'일 남음'));
+  const stMap={'대기':['st-wait','대기'],'진행중':['st-prog','진행중'],
+               '완료':['st-done','완료'],'보류':['st-hold','보류']};
+  const [sc,sl]=stMap[st.status];
+
+  return `<article class="${cls}" data-sr="${r.sr}">
+    <div class="dday"><span class="num">${num}</span><span class="unit">${unit}</span></div>
+    <div class="body">
+      <div class="line1">
+        <span class="sr">${r.sr}</span>
+        <span class="team">${r.team}</span>
+        <span class="who">${r.by}</span>
+        ${r.assignee?`<span class="assignee">→ ${r.assignee}</span>`:''}
+      </div>
+      <div class="item">${r.item} <span class="opt">${r.opt!=='—'?r.opt:''}</span> <span class="qty">×${r.qty.toLocaleString()}</span></div>
+      ${stockBox(r)}
+      <div class="line3">
+        <span class="meta">희망 <b>${r.want.slice(5).replace('-','/')}</b></span>
+        <span class="meta">수령 <b>${r.to}</b></span>
+        <span class="meta">접수 ${r.recv}</span>
+      </div>
+      ${r.note?`<div class="note">${r.note}</div>`:''}
+      ${held?`<div class="holdbar"><span class="pz">알림 정지</span><span>${st.hold} · 요청자에게 통보됨</span></div>`:''}
+      ${esc?`<div class="holdbar" style="background:#FBEDEC;border-color:#EFC5C1;color:var(--stamp-red)">
+        <span class="pz" style="background:var(--stamp-red)">에스컬레이션</span>
+        <span>2일 초과 — 팀장 보고 대상 (파일럿 중 발송 OFF)</span></div>`:''}
+      <div class="actions">
+        <button class="status ${sc}" data-act="status" ${held?'disabled style="opacity:.55"':''}><span class="dot"></span>${sl}</button>
+        <button class="check" data-act="check" aria-pressed="${st.checked}" aria-label="처리 완료 표시" ${held?'disabled style="opacity:.4"':''}>${CHK}</button>
+        <button class="holdbtn" data-act="hold" aria-pressed="${held}">${held?'보류 해제':'보류'}</button>
+        <button class="send${st.sent?' sent':''}" data-act="send" ${(!done||st.sent)?'disabled':''}>
+          ${SND}${st.sent?'전송됨':'완료 전송'}</button>
+      </div>
+    </div>
+  </article>`;
+}
+
+function render(){
+  renderTabs();
+  const rs=view();
+  const el=document.getElementById('list');
+
+  if(!rs.length){
+    el.innerHTML=`<div class="empty"><div class="mk">◻︎</div><p>이 구간에 요청이 없어요.</p></div>`;
+  } else {
+    const groups={};
+    rs.sort((a,b)=>dday(a)-dday(b) || a.sr.localeCompare(b.sr));
+    rs.forEach(r=>{(groups[r.want] ||= []).push(r);});
+    el.innerHTML = Object.entries(groups).map(([w,g])=>{
+      const d=dday(g[0]);
+      const lbl = d<0?`지연 · ${w.slice(5).replace('-','/')} 희망`
+                : d===0?`오늘 출고 · ${w.slice(5).replace('-','/')}`
+                : `${w.slice(5).replace('-','/')} · D-${d}`;
+      return `<section class="daygroup"><div class="daylabel">${lbl}</div>${g.map(row).join('')}</section>`;
+    }).join('');
+  }
+
+  const all=DATA.filter(r=>r.scope===SCOPE);
+  const s=sr=>state.get(sr).status;
+  document.getElementById('s-late').textContent = all.filter(r=>dday(r)<0 && s(r.sr)!=='완료' && s(r.sr)!=='보류').length;
+  document.getElementById('s-wait').textContent = all.filter(r=>s(r.sr)!=='완료' && s(r.sr)!=='보류').length;
+  document.getElementById('s-hold').textContent = all.filter(r=>s(r.sr)==='보류').length;
+  document.getElementById('s-done').textContent = all.filter(r=>s(r.sr)==='완료').length;
+}
+
+let tt;
+function toast(html){
+  const t=document.getElementById('toast');
+  t.innerHTML=html; t.classList.add('on');
+  clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('on'),2600);
+}
+
+document.addEventListener('click',e=>{
+  const tab=e.target.closest('[data-tab]');
+  if(tab){TAB=tab.dataset.tab; render(); return;}
+  const sub=e.target.closest('[data-scope]');
+  if(sub){SCOPE=sub.dataset.scope; render(); return;}
+
+  const btn=e.target.closest('[data-act]');
+  if(!btn) return;
+  const sr=btn.closest('.row').dataset.sr;
+  const st=state.get(sr);
+  const r=DATA.find(x=>x.sr===sr);
+
+  if(btn.dataset.act==='status'){
+    st.status = st.status==='대기'?'진행중':(st.status==='진행중'?'완료':'대기');
+    st.checked = st.status==='완료';
+    if(st.status!=='완료') st.sent=false;
+    render();
+  }
+  if(btn.dataset.act==='check'){
+    st.checked=!st.checked;
+    st.status = st.checked?'완료':'진행중';
+    if(!st.checked) st.sent=false;
+    render();
+  }
+  if(btn.dataset.act==='send'){
+    st.sent=true; render();
+    toast(`${SLK}<span><b>${r.by}</b>님께 완료 알림 전송 · ${r.sr}</span>`);
+  }
+  if(btn.dataset.act==='hold'){
+    if(st.status==='보류'){
+      st.status='대기'; st.hold=null; render();
+      toast(`${SLK}<span><b>${r.sr}</b> 보류 해제 · 알림 재개</span>`);
+    } else {
+      openSheet(sr);
+    }
+  }
+  if(btn.dataset.act==='qhold'){
+    applyHold(sr, '재고 부족');
+  }
+  if(btn.dataset.act==='calc'){
+    const box=document.getElementById('calc-'+sr);
+    if(box) box.hidden=!box.hidden;
+  }
+});
+
+function applyHold(sr, reason){
+  const st=state.get(sr), r=DATA.find(x=>x.sr===sr);
+  st.status='보류'; st.hold=reason; st.checked=false; st.sent=false;
+  render();
+  toast(`${SLK}<span><b>${r.by}</b>님께 통보 · ${reason}</span>`);
+}
+
+// ── 보류 사유 시트 ──
+let pending=null;
+function openSheet(sr){
+  pending=sr;
+  const r=DATA.find(x=>x.sr===sr);
+  document.getElementById('sheet-sub').innerHTML=`<b>${r.sr}</b> · ${r.item} — 사유를 고르면 리마인드와 에스컬레이션이 멈추고, 요청자에게 자동 통보돼요.`;
+  document.getElementById('reasons').innerHTML=REASONS.map(x=>
+    x.k==='__etc__'
+      ? `<button class="reason" data-reason="__etc__">기타 (직접 입력)<small>${x.d}</small></button>`
+      : `<button class="reason" data-reason="${x.k}">${x.k}<small>${x.d}</small></button>`
+  ).join('') + `
+    <div id="etcwrap" style="display:none;margin-top:2px">
+      <input id="etcinput" type="text" maxlength="60" placeholder="예: 요청팀이 주소 오기재 — 재확인 요청함"
+        style="width:100%;font-family:var(--sans);font-size:13px;padding:11px 12px;
+        border:1px solid var(--stamp-amber);border-radius:7px;outline:none;box-sizing:border-box">
+      <button class="reason" id="etcsave" style="margin-top:7px;text-align:center;border-color:var(--stamp-amber);
+        color:var(--stamp-amber);font-weight:700">이 사유로 보류</button>
+    </div>`;
+  document.getElementById('scrim').classList.add('on');
+  document.getElementById('sheet').classList.add('on');
+}
+function closeSheet(){
+  pending=null;
+  document.getElementById('scrim').classList.remove('on');
+  document.getElementById('sheet').classList.remove('on');
+}
+document.addEventListener('click',e=>{
+  if(e.target.closest('[data-close]') || e.target.id==='scrim'){closeSheet();return;}
+
+  // 기타 직접 입력 저장
+  if(e.target.id==='etcsave' && pending){
+    const val=(document.getElementById('etcinput').value||'').trim();
+    if(!val){document.getElementById('etcinput').focus();return;}
+    const sr=pending; closeSheet(); applyHold(sr, val);
+    return;
+  }
+
+  const rb=e.target.closest('[data-reason]');
+  if(rb && pending){
+    if(rb.dataset.reason==='__etc__'){
+      // 사유 목록 접고 입력창 노출
+      document.querySelectorAll('#reasons > .reason').forEach(b=>{
+        if(b.dataset.reason!=='__etc__') b.style.display='none';
+      });
+      rb.style.display='none';
+      const w=document.getElementById('etcwrap');
+      w.style.display='block';
+      document.getElementById('etcinput').focus();
+      return;
+    }
+    const sr=pending; closeSheet(); applyHold(sr, rb.dataset.reason);
+  }
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeSheet();
+  if(e.key==='Enter' && document.activeElement && document.activeElement.id==='etcinput'){
+    document.getElementById('etcsave').click();
+  }
+});
+
+(function clock(){
+  const f=new Intl.DateTimeFormat('ko-KR',{month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'});
+  document.getElementById('clock').textContent = f.format(TODAY);
+})();
+render();
+</script>
+</body>
+</html>
