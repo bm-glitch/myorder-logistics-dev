@@ -10,22 +10,41 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#16181B;
-    --ink-60:#5B6167;
-    --ink-35:#9AA1A8;
-    --paper:#FAFAF8;
+    --ink:#2A2C2F;
+    --ink-60:#515256;
+    --ink-35:#8a8a92;
+    --paper:#f2f4f6;
     --card:#FFFFFF;
-    --rule:#E3E1DA;
-    --rule-2:#CFCCC2;
-    --stamp-blue:#1F5FA8;
-    --stamp-green:#1F7A4C;
-    --stamp-red:#C4342B;
-    --stamp-amber:#9A6B12;
-    --pencil:#8A9096;
-    --kraft:#C8A87C;
-    --shadow:0 1px 0 rgba(22,24,27,.06), 0 6px 18px -12px rgba(22,24,27,.35);
+    --rule:#e3e3e8;
+    --rule-2:#d6d7de;
+    --stamp-blue:#1577cc;
+    --stamp-green:#12925a;
+    --stamp-red:#d6173a;
+    --stamp-amber:#b5730a;
+    --pencil:#8a8a92;
+    --kraft:#1577cc;
+    --blue-400:#1da4ff;
+    --shadow:0 1px 3px rgba(20,24,30,.06), 0 4px 12px rgba(20,24,30,.08);
     --mono:'JetBrains Mono', ui-monospace, monospace;
     --sans:'Pretendard', -apple-system, system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#f3f4f6; --ink-60:#c2c5cc; --ink-35:#a9adb8;
+      --paper:#17171c; --card:#202028;
+      --rule:#313742; --rule-2:#3c3c46;
+      --stamp-blue:#1da4ff; --stamp-green:#46c66a; --stamp-red:#ef6d7f; --stamp-amber:#e7b75c;
+      --pencil:#8b95a1; --kraft:#1da4ff;
+      --shadow:0 1px 3px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#f3f4f6; --ink-60:#c2c5cc; --ink-35:#a9adb8;
+    --paper:#17171c; --card:#202028;
+    --rule:#313742; --rule-2:#3c3c46;
+    --stamp-blue:#1da4ff; --stamp-green:#46c66a; --stamp-red:#ef6d7f; --stamp-amber:#e7b75c;
+    --pencil:#8b95a1; --kraft:#1da4ff;
+    --shadow:0 1px 3px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.45);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
@@ -124,14 +143,14 @@
   }
   .row.late{border-color:var(--stamp-red);border-width:1.5px}
   .row.done{opacity:.5}
-  .row.hold{border-color:var(--stamp-amber);border-width:1.5px;background:#FFFDF7}
+  .row.hold{border-color:var(--stamp-amber);border-width:1.5px;background:#f7fbff}
 
   /* D-day 스탬프 (시그니처) */
   .dday{
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:1px;
     border-right:1px solid var(--rule);
-    background:linear-gradient(180deg,#fff, #F6F5F1);
+    background:linear-gradient(180deg,#fff, #f2f4f6);
     font-family:var(--mono);
   }
   .dday .num{font-size:17px;font-weight:700;letter-spacing:-.04em;line-height:1}
@@ -139,7 +158,7 @@
   .row.late .dday{background:var(--stamp-red);border-right-color:var(--stamp-red)}
   .row.late .dday .num,.row.late .dday .unit{color:#fff}
   .row.today .dday .num{color:var(--stamp-red)}
-  .row.hold .dday{background:repeating-linear-gradient(135deg,#FFF9EC,#FFF9EC 5px,#FDF1D8 5px,#FDF1D8 10px);border-right-color:var(--stamp-amber)}
+  .row.hold .dday{background:repeating-linear-gradient(135deg,#fbf3df,#fbf3df 5px,#f5e6c2 5px,#f5e6c2 10px);border-right-color:var(--stamp-amber)}
   .row.hold .dday .num{color:var(--stamp-amber)}
   .row.hold .dday .unit{color:var(--stamp-amber);opacity:.8}
 
@@ -166,10 +185,10 @@
   .stockbox{
     display:flex;align-items:center;gap:8px;
     margin:5px 0 2px;padding:5px 8px;
-    border:1px solid var(--rule);border-radius:5px;background:#F7FAF8;
+    border:1px solid var(--rule);border-radius:5px;background:#f5f9ff;
   }
-  .stockbox.short{background:#FBEDEC;border-color:#EFC5C1}
-  .stockbox.exact{background:#FEFBEE;border-color:#EBD9A8}
+  .stockbox.short{background:#fce8ea;border-color:#f3b6bd}
+  .stockbox.exact{background:#fbf3df;border-color:#ecd08a}
   .stk{display:flex;align-items:baseline;gap:4px;font-family:var(--mono);flex:none}
   .stk .lab{font-size:9px;letter-spacing:.06em;color:var(--ink-35);font-family:var(--sans);font-weight:600}
   .stk .v{font-size:14px;font-weight:700;line-height:1}
@@ -205,7 +224,7 @@
   .calcbtn:hover{border-color:var(--ink);color:var(--ink)}
   .calcrow{
     margin:0 0 2px;padding:9px 10px;
-    background:#F4F6F8;border:1px solid var(--rule);border-top:0;
+    background:#f2f4f6;border:1px solid var(--rule);border-top:0;
     border-radius:0 0 5px 5px;
   }
   .calcline{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:var(--mono)}
@@ -219,7 +238,7 @@
   .calcsrc{margin-top:6px;font-family:var(--mono);font-size:8.5px;color:var(--ink-35);letter-spacing:.03em}
   .trap{
     font-size:11px;font-weight:600;color:var(--stamp-red);
-    background:#FBEDEC;border:1px solid #EFC5C1;border-radius:4px;
+    background:#fce8ea;border:1px solid #f3b6bd;border-radius:4px;
     padding:5px 8px;margin-bottom:8px;line-height:1.4;
   }
 
@@ -228,7 +247,7 @@
   .meta b{color:var(--ink-60);font-weight:600}
   .note{
     font-size:11.5px;color:var(--ink-60);
-    background:#FBF8F1;border-left:2px solid var(--kraft);
+    background:#eef4fb;border-left:2px solid var(--kraft);
     padding:3px 7px;border-radius:0 3px 3px 0;margin-top:6px;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
@@ -246,13 +265,13 @@
   .st-wait{color:var(--pencil);border-color:var(--rule-2);background:#fff}
   .st-prog{color:var(--stamp-blue);border-color:var(--stamp-blue);background:#EEF4FB}
   .st-done{color:var(--stamp-green);border-color:var(--stamp-green);background:#EDF6F1}
-  .st-hold{color:var(--stamp-amber);border-color:var(--stamp-amber);background:#FDF6E7}
+  .st-hold{color:var(--stamp-amber);border-color:var(--stamp-amber);background:#fbf3df}
 
   /* 보류 사유 배너 */
   .holdbar{
     display:flex;align-items:center;gap:6px;
     margin-top:7px;padding:5px 8px;
-    background:#FDF6E7;border:1px solid #EBD9A8;border-radius:4px;
+    background:#fbf3df;border:1px solid #ecd08a;border-radius:4px;
     font-size:11.5px;color:var(--stamp-amber);font-weight:600;
   }
   .holdbar .pz{font-family:var(--mono);font-size:9px;letter-spacing:.1em;
@@ -353,6 +372,57 @@
   #sheet h2{margin:0 0 3px;font-size:15px;font-weight:700;letter-spacing:-.02em}
   #sheet .sub{margin:0 0 14px;font-size:12px;color:var(--ink-35)}
   #sheet .sub b{font-family:var(--mono);color:var(--ink-60)}
+
+  /* 송장 등록 시트 (기존 #scrim/#sheet 패턴 재사용) */
+  #trackScrim{position:fixed;inset:0;background:rgba(22,24,27,.45);z-index:80;opacity:0;pointer-events:none;transition:.2s}
+  #trackScrim.on{opacity:1;pointer-events:auto}
+  #trackSheet{
+    position:fixed;left:50%;bottom:0;width:100%;max-width:560px;
+    transform:translate(-50%,100%);background:var(--card);z-index:81;
+    border-radius:14px 14px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+    transition:transform .24s cubic-bezier(.2,.8,.2,1);box-shadow:0 -8px 32px -12px rgba(0,0,0,.4);
+  }
+  #trackSheet.on{transform:translate(-50%,0)}
+  #trackSheet h2{margin:0 0 3px;font-size:15px;font-weight:700;letter-spacing:-.02em}
+  #trackSheet .sub{margin:0 0 14px;font-size:12px;color:var(--ink-35)}
+  .tracktabs{display:flex;gap:6px;margin-bottom:14px}
+  .tracktab{
+    flex:1;appearance:none;cursor:pointer;font-family:var(--sans);font-size:12.5px;font-weight:700;
+    padding:9px 8px;border-radius:7px;border:1px solid var(--rule-2);background:#fff;color:var(--ink-35);
+    transition:.15s;
+  }
+  .tracktab.active{border-color:var(--ink);background:var(--ink);color:#fff}
+  .trackfield{margin-bottom:10px}
+  .trackfield label{display:block;font-size:11.5px;font-weight:700;color:var(--ink-60);margin-bottom:5px}
+  .trackfield select,.trackfield input{
+    width:100%;box-sizing:border-box;font-family:var(--sans);font-size:13.5px;
+    padding:11px 12px;border:1px solid var(--rule-2);border-radius:7px;outline:none;background:#fff;
+  }
+  .trackfield select:focus,.trackfield input:focus{border-color:var(--ink)}
+  .trackhint{font-size:11px;color:var(--ink-35);line-height:1.5;margin:2px 0 14px}
+  .tracksave{
+    display:block;width:100%;text-align:center;appearance:none;cursor:pointer;
+    font-family:var(--sans);font-size:13.5px;font-weight:700;color:#fff;
+    padding:12px 13px;border:0;border-radius:7px;background:var(--ink);transition:.15s;
+  }
+  .tracksave:hover{opacity:.88}
+
+  /* 행에 표시되는 송장 정보 + 알림 버튼 */
+  .trackinfo{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    margin-top:7px;padding:6px 9px;
+    background:#eef4fb;border:1px solid #bcd8f2;border-radius:5px;
+    font-size:11.5px;color:var(--stamp-blue);font-weight:600;
+  }
+  .trackinfo .tno{font-family:var(--mono);letter-spacing:.02em}
+  .notifytrackbtn{
+    margin-left:auto;flex:none;appearance:none;cursor:pointer;
+    font-family:var(--sans);font-size:10.5px;font-weight:700;
+    padding:4px 9px;border-radius:4px;border:1px solid var(--stamp-blue);
+    background:#fff;color:var(--stamp-blue);transition:.15s;
+  }
+  .notifytrackbtn:hover{background:var(--stamp-blue);color:#fff}
+  .notifytrackbtn.sent{border-color:var(--rule-2);color:var(--ink-35);background:#fff;cursor:default}
   .reason{
     display:block;width:100%;text-align:left;
     appearance:none;cursor:pointer;
@@ -361,7 +431,7 @@
     border:1px solid var(--rule-2);border-radius:7px;background:#fff;
     transition:.15s;
   }
-  .reason:hover{border-color:var(--stamp-amber);background:#FFFDF7}
+  .reason:hover{border-color:var(--stamp-amber);background:#f7fbff}
   .reason small{display:block;font-weight:500;font-size:11px;color:var(--ink-35);margin-top:2px}
   .cancel{
     width:100%;appearance:none;cursor:pointer;margin-top:5px;
@@ -375,6 +445,79 @@
     .footbar{max-width:560px;left:50%;transform:translateX(-50%)}
   }
   :focus-visible{outline:2px solid var(--stamp-blue);outline-offset:2px}
+  /* ===== 다크 모드 마감: 종이 기반 디자인의 흰 표면·검정(ink) 버튼을 다크 토큰으로 재도색 =====
+     data-theme는 로드시 항상 설정되므로 [data-theme="dark"] 하나만 타깃해도 OS 다크까지 커버됩니다. */
+  :root[data-theme="dark"] .dday{background:linear-gradient(180deg,#26262e,#202028)}
+  :root[data-theme="dark"] .stockbox{background:#202028;border-color:var(--rule)}
+  :root[data-theme="dark"] .stockbox.short{background:#3a2422;border-color:#5a2a2e}
+  :root[data-theme="dark"] .stockbox.exact{background:#3a2e17;border-color:#5c4a1e}
+  :root[data-theme="dark"] .calcrow{background:#1b1b22}
+  :root[data-theme="dark"] .trap{background:#3a2422;border-color:#5a2a2e;color:#ef6d7f}
+  :root[data-theme="dark"] .note{background:#1b2430}
+  :root[data-theme="dark"] .trackinfo{background:#12233a;border-color:#1d3a5c}
+  :root[data-theme="dark"] .qhold{background:#202028}
+  :root[data-theme="dark"] .calcbtn{background:#202028}
+  :root[data-theme="dark"] .check{background:#202028}
+  :root[data-theme="dark"] .holdbtn{background:#202028}
+  :root[data-theme="dark"] .status.st-wait{background:#202028}
+  :root[data-theme="dark"] .status.st-prog{background:#12233a;color:#5cb4ee;border-color:#1d3a5c}
+  :root[data-theme="dark"] .status.st-done{background:#12261b;color:#46c66a;border-color:#1e4a30}
+  :root[data-theme="dark"] .status.st-hold{background:#3a2e17;color:#e7b75c;border-color:#5c4a1e}
+  :root[data-theme="dark"] .holdbar{background:#3a2e17;border-color:#5c4a1e}
+  :root[data-theme="dark"] .tracktab{background:#202028}
+  :root[data-theme="dark"] .trackfield select,
+  :root[data-theme="dark"] .trackfield input,
+  :root[data-theme="dark"] #sheet input{background:#202028;color:var(--ink);border-color:var(--rule-2)}
+  :root[data-theme="dark"] .notifytrackbtn,
+  :root[data-theme="dark"] .notifytrackbtn.sent{background:#202028}
+  :root[data-theme="dark"] .reason{background:#202028}
+  :root[data-theme="dark"] .reason:hover{background:#1b2430}
+  /* ink을 배경으로 쓰던 기본(Primary) 버튼 → 브랜드 블루로 */
+  :root[data-theme="dark"] .send{background:#1577cc;border-color:#1577cc;color:#fff}
+  :root[data-theme="dark"] .send:disabled{background:#202028;color:var(--ink-35);border-color:var(--rule)}
+  :root[data-theme="dark"] .send.sent{background:#202028;color:#46c66a;border-color:#1e4a30}
+  :root[data-theme="dark"] .subtab[aria-pressed="true"]{background:#1577cc;border-color:#1577cc;color:#fff}
+  :root[data-theme="dark"] .tracktab.active{background:#1577cc;border-color:#1577cc;color:#fff}
+  :root[data-theme="dark"] .tracksave{background:#1577cc;color:#fff}
+
+  /* ===== 상품별 펼쳐보기(멀티 상품 주문) ===== */
+  .prodtoggle{
+    appearance:none;cursor:pointer;font-family:var(--sans);font-size:11.5px;font-weight:700;
+    color:var(--stamp-blue);background:var(--card);border:1px solid var(--rule-2);border-radius:6px;
+    padding:5px 10px;margin:2px 0 4px;display:inline-flex;align-items:center;gap:6px;transition:.15s;
+  }
+  .prodtoggle:hover{border-color:var(--stamp-blue)}
+  .prodtoggle .chev{transition:transform .15s;font-size:9px}
+  .prodtoggle[aria-expanded="true"] .chev{transform:rotate(180deg)}
+  .prodpanel{margin:2px 0 6px;border:1px solid var(--rule);border-radius:8px;background:var(--paper);overflow:hidden}
+  .prodhead{font-size:10.5px;color:var(--ink-35);padding:8px 10px;border-bottom:1px solid var(--rule);background:var(--card)}
+  .prodline{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--rule);font-size:12.5px;cursor:pointer;margin:0}
+  .prodline:last-of-type{border-bottom:0}
+  .prodline.is-short{background:#fce8ea}
+  .prodline input{width:16px;height:16px;accent-color:var(--stamp-blue);flex:none;cursor:pointer}
+  .prodline .pname{flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prodline .popt{font-weight:500;color:var(--ink-35)}
+  .prodline .pqty{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--ink-60);flex:none}
+  .prodline .pavail{font-family:var(--mono);font-size:11px;color:var(--ink-60);flex:none;min-width:58px;text-align:right}
+  .pbadge{font-size:10px;font-weight:700;border-radius:3px;padding:2px 6px;flex:none}
+  .pbadge.ok{color:var(--stamp-green);background:#e6f4ec}
+  .pbadge.short{color:#fff;background:var(--stamp-red)}
+  .pbadge.unk{color:var(--ink-35);background:var(--rule)}
+  .pbadge.ls-hold{color:#fff;background:var(--stamp-amber)}
+  .pbadge.ls-reject{color:#fff;background:var(--stamp-red)}
+  .pbadge.ls-exch{color:#fff;background:var(--stamp-blue)}
+  .prodline.has-status{background:var(--paper)}
+  .pact.clear{color:var(--ink-60)}
+  .prodactions{display:flex;gap:6px;padding:9px 10px;flex-wrap:wrap;background:var(--card);border-top:1px solid var(--rule)}
+  .prodactions .selhint{font-size:10.5px;color:var(--ink-35);margin-right:auto;align-self:center}
+  .pact{appearance:none;cursor:pointer;font-family:var(--sans);font-size:11.5px;font-weight:700;border-radius:6px;padding:6px 10px;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);transition:.15s}
+  .pact.hold{color:var(--stamp-amber);border-color:var(--stamp-amber)}
+  .pact.reject{color:var(--stamp-red);border-color:var(--stamp-red)}
+  .pact.exch{color:var(--stamp-blue);border-color:var(--stamp-blue)}
+  .pact:hover{filter:brightness(.97)}
+  :root[data-theme="dark"] .prodline.is-short{background:#3a2422}
+  :root[data-theme="dark"] .pbadge.ok{background:#173327}
+  :root[data-theme="dark"] .pbadge.unk{background:#3c3c46}
 </style>
 </head>
 <body>
@@ -384,6 +527,7 @@
     <h1 class="title">출고요청 대장</h1>
     <span class="proto">PROTO</span>
     <span class="clock" id="clock"></span>
+    <button id="themeToggle" title="라이트/다크 전환" aria-label="테마 전환" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:6px;width:30px;height:26px;cursor:pointer;font-size:13px;line-height:1;">◐</button>
   </div>
   <div class="tabs" role="tablist" id="tabs"></div>
   <div class="subtabs" id="subtabs"></div>
@@ -408,6 +552,48 @@
   <p class="sub" id="sheet-sub"></p>
   <div id="reasons"></div>
   <button class="cancel" data-close>취소</button>
+</div>
+
+<div id="trackScrim"></div>
+<div id="trackSheet" role="dialog" aria-modal="true" aria-labelledby="track-h">
+  <h2 id="track-h">송장 등록</h2>
+  <p class="sub" id="track-sub"></p>
+
+  <div class="tracktabs">
+    <button type="button" class="tracktab active" data-trackmode="manual">지금 바로 등록</button>
+    <button type="button" class="tracktab" data-trackmode="seq">관리번호만 연결</button>
+  </div>
+
+  <div id="trackManual">
+    <div class="trackfield">
+      <label>택배사</label>
+      <select id="trackCarrier">
+        <option value="CJ대한통운">CJ대한통운</option>
+        <option value="한진택배">한진택배</option>
+        <option value="롯데택배">롯데택배</option>
+        <option value="로젠택배">로젠택배</option>
+        <option value="우체국택배">우체국택배</option>
+        <option value="기타">기타</option>
+      </select>
+    </div>
+    <div class="trackfield">
+      <label>송장번호</label>
+      <input id="trackNoInput" type="text" placeholder="예: 123456789012" inputmode="numeric">
+    </div>
+    <p class="trackhint">등록만 돼요 — 요청자에게 알림은 가지 않아요. 목록에서 "송장 알림 보내기" 버튼을 눌러야 전달돼요.</p>
+    <button type="button" class="tracksave" id="trackManualSave">등록만 하기</button>
+  </div>
+
+  <div id="trackSeq" style="display:none">
+    <div class="trackfield">
+      <label>이지어드민 관리번호</label>
+      <input id="trackSeqInput" type="text" placeholder="예: 20260805-000123">
+    </div>
+    <p class="trackhint">연결해두면 5분마다 자동으로 확인해서, 송장이 등록되는 즉시 채워져요. 이때도 알림은 자동으로 가지 않고, 목록에서 "송장 알림 보내기"를 직접 눌러야 전달돼요.</p>
+    <button type="button" class="tracksave" id="trackSeqSave">관리번호 연결</button>
+  </div>
+
+  <button class="cancel" data-close-track>취소</button>
 </div>
 
 <div id="toast"></div>
@@ -515,7 +701,7 @@ function stockBox(r){
     <span class="stk sku">${r.sku}</span>
   </div>
   <div class="calcrow" id="calc-${r.sr}" hidden>
-    ${trap?`<div class="trap">⚠ 전산 현재고(${phys.toLocaleString()})만 보면 충분하지만, 출고 예약분을 빼면 실제로는 부족합니다.</div>`:''}
+    ${trap?`<div class="trap">⚠ 전산 현재고(${phys.toLocaleString()})만 보면 충분하지만, 출고 예약분을 빼면 실제로는 부족해요.</div>`:''}
     <div class="calcline">
       <span class="ci"><b>${phys.toLocaleString()}</b><i>현재고</i></span>
       <span class="op">−</span>
@@ -526,6 +712,53 @@ function stockBox(r){
       <span class="ci res ${short?'r-short':''}"><b>${avail.toLocaleString()}</b><i>가용재고</i></span>
     </div>
     <div class="calcsrc">이지어드민 실시간 · SKU ${r.sku}</div>
+  </div>`;
+}
+
+// 상품코드(SKU) 하나의 가용재고. 없으면 null(재고 미확인).
+function prodAvail(code){
+  const s = STOCK[String(code||'').trim()];
+  if(!s) return null;
+  return s.available != null ? s.available : s.stock;
+}
+
+// 체크된 상품 이름 목록 (해당 주문 패널 안에서만)
+function tickedProdNames(sr){
+  return [...document.querySelectorAll('.prodtick[data-sr="'+CSS.escape(sr)+'"]:checked')]
+    .map(c=>c.dataset.name).filter(Boolean);
+}
+
+// 멀티 상품 주문의 펼침 패널 — 상품별 가용재고 충분/부족 + 개별 체크
+function prodPanel(r, prods){
+  const lines = prods.map((p,i)=>{
+    const code=(p.code||'').trim();
+    const av = code ? prodAvail(code) : null;
+    const qty = Number(p.qty)||0;
+    const known = av != null;
+    const short = known && av < qty;
+    const badge = !known ? `<span class="pbadge unk">재고 미확인</span>`
+               : short ? `<span class="pbadge short">부족 ${(qty-av).toLocaleString()}</span>`
+                       : `<span class="pbadge ok">충분</span>`;
+    const ls = p.lineStatus;
+    const lsBadge = ls ? `<span class="pbadge ls-${ls==='반려'?'reject':ls==='교환요청'?'exch':'hold'}" title="${escHtml(p.lineReason||'')}">${escHtml(ls)}</span>` : '';
+    return `<label class="prodline${short?' is-short':''}${ls?' has-status':''}">
+      <input type="checkbox" class="prodtick" data-sr="${r.sr}" data-idx="${i}" data-name="${escHtml(p.name||'')}">
+      <span class="pname">${escHtml(p.name||'(상품명 없음)')}${p.option?` <span class="popt">${escHtml(p.option)}</span>`:''}</span>
+      <span class="pqty">×${qty.toLocaleString()}</span>
+      <span class="pavail">${known?`가용 ${av.toLocaleString()}`:'가용 —'}</span>
+      ${lsBadge||badge}
+    </label>`;
+  }).join('');
+  return `<div class="prodpanel" id="prods-${r.sr}" hidden>
+    <div class="prodhead">상품 ${prods.length}개 — 재고가 부족한 상품을 체크한 뒤 아래에서 보류·반려·교환을 선택하세요. 상태는 상품별로 저장되고 요청자에게 통보돼요.</div>
+    ${lines}
+    <div class="prodactions">
+      <span class="selhint">체크한 상품만 처리돼요</span>
+      <button class="pact hold" data-act="prodhold">선택 상품 보류</button>
+      <button class="pact reject" data-act="prodreject">재고부족 반려</button>
+      <button class="pact exch" data-act="prodexchange">교환 요청</button>
+      <button class="pact clear" data-act="prodclear">정상 복귀</button>
+    </div>
   </div>`;
 }
 
@@ -552,8 +785,9 @@ function row(r){
         <span class="who">${r.by}</span>
         ${r.assignee?`<span class="assignee">→ ${r.assignee}</span>`:''}
       </div>
-      <div class="item">${r.item} <span class="opt">${r.opt!=='—'?r.opt:''}</span> <span class="qty">×${r.qty.toLocaleString()}</span></div>
+      <div class="item">${r.item} <span class="opt">${r.opt!=='—'?r.opt:''}</span> <span class="qty">×${r.qty.toLocaleString()}</span>${(r.products&&r.products.length>1)?` <span class="opt">외 ${r.products.length-1}건</span>`:''}</div>
       ${stockBox(r)}
+      ${(r.products&&r.products.length>1)?`<button class="prodtoggle" data-act="expandprods" aria-expanded="false">📋 상품 ${r.products.length}개 · 펼쳐보기 <span class="chev">▾</span></button>${prodPanel(r, r.products)}`:''}
       <div class="line3">
         <span class="meta">희망 <b>${r.want.slice(5).replace('-','/')}</b></span>
         <span class="meta">수령 <b>${r.to}</b></span>
@@ -564,6 +798,10 @@ function row(r){
       ${esc?`<div class="holdbar" style="background:#FBEDEC;border-color:#EFC5C1;color:var(--stamp-red)">
         <span class="pz" style="background:var(--stamp-red)">에스컬레이션</span>
         <span>2일 초과 — 팀장 보고 대상 (파일럿 중 발송 OFF)</span></div>`:''}
+      ${r.trackingNo?`<div class="trackinfo">
+        <span>🚚</span><span>${escHtml(r.carrier||'')}</span><span class="tno">${escHtml(r.trackingNo)}</span>
+        <button type="button" class="notifytrackbtn${r.trackingNotified?' sent':''}" data-act="notifytrack">${r.trackingNotified?'알림 전송됨':'📨 송장 알림 보내기'}</button>
+      </div>`:''}
       <div class="actions">
         <button class="status ${sc}" data-act="status" ${held?'disabled style="opacity:.55"':''}><span class="dot"></span>${sl}</button>
         <button class="check" data-act="check" aria-pressed="${st.checked}" aria-label="처리 완료 표시" ${held?'disabled style="opacity:.4"':''}>${CHK}</button>
@@ -634,7 +872,8 @@ document.addEventListener('click',e=>{
     return;
   }
   if(btn.dataset.act==='send'){
-    toast(`${SLK}<span><b>${r.by}</b>님께 완료 알림 전송 · ${r.sr}</span>`);
+    // 웹 접수 건은 Slack ID가 없어 알림이 안 가므로, 전송을 단정하지 않고 정직하게 안내합니다.
+    toast(`${SLK}<span><b>${r.sr}</b> 완료 처리 · Slack으로 접수된 건만 요청자에게 자동 알림이 가요</span>`);
     patchNotify(sr);
     return;
   }
@@ -648,11 +887,34 @@ document.addEventListener('click',e=>{
     return;
   }
   if(btn.dataset.act==='track'){
-    registerTracking(sr);
+    openTrackSheet(sr);
+    return;
+  }
+  if(btn.dataset.act==='notifytrack'){
+    if(btn.classList.contains('sent')) return;
+    notifyTracking(sr);
     return;
   }
   if(btn.dataset.act==='qhold'){
     applyHold(sr, '재고 부족');
+  }
+  if(btn.dataset.act==='expandprods'){
+    const panel=document.getElementById('prods-'+sr);
+    if(panel){ const show=panel.hidden; panel.hidden=!show; btn.setAttribute('aria-expanded', String(show)); }
+    return;
+  }
+  if(['prodhold','prodreject','prodexchange','prodclear'].includes(btn.dataset.act)){
+    const ticks=[...document.querySelectorAll('.prodtick[data-sr="'+CSS.escape(sr)+'"]:checked')];
+    if(!ticks.length){ alert('먼저 처리할 상품을 체크해 주세요. (예: 재고가 부족한 상품)'); return; }
+    const indexes=ticks.map(c=>Number(c.dataset.idx));
+    const names=ticks.map(c=>c.dataset.name).filter(Boolean);
+    const action = btn.dataset.act==='prodexchange' ? 'exchange'
+                 : btn.dataset.act==='prodreject' ? 'reject'
+                 : btn.dataset.act==='prodclear' ? 'clear' : 'hold';
+    const label = action==='exchange'?'교환 요청':action==='reject'?'재고부족 반려':action==='clear'?'정상 복귀':'보류';
+    const reason = action==='clear' ? '' : `${label}: ${names.join(', ')}`;
+    patchProductStatus(sr, action, indexes, reason, label);
+    return;
   }
   if(btn.dataset.act==='calc'){
     const box=document.getElementById('calc-'+sr);
@@ -667,7 +929,7 @@ async function patchStatus(sr, status){
       body: JSON.stringify({status})
     });
     if(!res.ok) throw new Error("서버 응답 "+res.status);
-  }catch(e){ alert(sr+" 상태 변경에 실패했습니다: "+(e.message||"연결 오류")); }
+  }catch(e){ alert(sr+" 상태 변경에 실패했어요: "+(e.message||"연결 오류")); }
   await loadData();
 }
 
@@ -678,7 +940,20 @@ async function patchHold(sr, reason){
       body: JSON.stringify({reason})
     });
     if(!res.ok) throw new Error("서버 응답 "+res.status);
-  }catch(e){ alert(sr+" 보류 처리에 실패했습니다: "+(e.message||"연결 오류")); }
+  }catch(e){ alert(sr+" 보류 처리에 실패했어요: "+(e.message||"연결 오류")); }
+  await loadData();
+}
+
+// 주문 안 특정 상품(들)만 보류/반려/교환/정상복귀 — 상품별 상태를 서버에 저장하고 요청자에게 통보
+async function patchProductStatus(sr, action, indexes, reason, label){
+  try{
+    const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/products/status", {
+      method:"PATCH", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({action, reason, indexes})
+    });
+    if(!res.ok) throw new Error("서버 응답 "+res.status);
+    toast(`${SLK}<span><b>${sr}</b> · 선택 상품 ${label}${action!=='clear'?' · 요청자에게 통보':''}</span>`);
+  }catch(e){ alert(sr+" 상품 상태 변경에 실패했어요: "+(e.message||"연결 오류")); }
   await loadData();
 }
 
@@ -686,27 +961,76 @@ async function patchNotify(sr){
   try{
     const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/notify", {method:"POST"});
     if(!res.ok) throw new Error("서버 응답 "+res.status);
-  }catch(e){ alert(sr+" 알림 전송에 실패했습니다: "+(e.message||"연결 오류")); }
+  }catch(e){ alert(sr+" 알림 전송에 실패했어요: "+(e.message||"연결 오류")); }
   await loadData();
 }
 
-/** 간단한 버전 — 택배사/송장번호를 물어보고 바로 등록합니다. */
-async function registerTracking(sr){
+// ── 송장 등록 시트 (등록과 알림을 분리) ──
+let trackPending=null;
+function openTrackSheet(sr){
   const r = DATA.find(x=>x.sr===sr);
-  if (r && r.trackingNo) { alert(sr+"은 이미 송장이 등록되어 있습니다: "+r.trackingNo); return; }
-  if (r && r.ezadminSeq) { alert(sr+"은 이지어드민 관리번호("+r.ezadminSeq+")가 이미 연결되어 있습니다. 송장이 등록되면 자동으로 채워집니다."); return; }
+  if (r && r.trackingNo) { alert(sr+"은 이미 송장이 등록되어 있어요: "+r.trackingNo+"\n(요청자 알림은 목록의 '송장 알림 보내기' 버튼으로 보내세요)"); return; }
+  if (r && r.ezadminSeq) { alert(sr+"은 이지어드민 관리번호("+r.ezadminSeq+")가 이미 연결되어 있어요. 송장이 등록되면 자동으로 채워져요."); return; }
 
-  const seq = prompt("이지어드민 관리번호를 입력해 주세요.\n연결해두면 송장이 등록되는 즉시 자동으로 채워지고, 요청자에게도 자동으로 알림이 갑니다.");
-  if(seq===null || !seq.trim()){ return; }
+  trackPending = sr;
+  document.getElementById('track-sub').innerHTML = `<b>${sr}</b> · ${escHtml(r.item)} — 등록만 하면 알림은 가지 않아요.`;
+  document.getElementById('trackCarrier').value = 'CJ대한통운';
+  document.getElementById('trackNoInput').value = '';
+  document.getElementById('trackSeqInput').value = '';
+  setTrackMode('manual');
+  document.getElementById('trackScrim').classList.add('on');
+  document.getElementById('trackSheet').classList.add('on');
+  setTimeout(()=>document.getElementById('trackNoInput').focus(), 50);
+}
+function closeTrackSheet(){
+  trackPending = null;
+  document.getElementById('trackScrim').classList.remove('on');
+  document.getElementById('trackSheet').classList.remove('on');
+}
+function setTrackMode(mode){
+  document.querySelectorAll('.tracktab').forEach(b => b.classList.toggle('active', b.dataset.trackmode===mode));
+  document.getElementById('trackManual').style.display = mode==='manual' ? '' : 'none';
+  document.getElementById('trackSeq').style.display = mode==='seq' ? '' : 'none';
+}
+async function saveTrackManual(){
+  const sr = trackPending; if(!sr) return;
+  const carrier = document.getElementById('trackCarrier').value;
+  const trackingNo = document.getElementById('trackNoInput').value.trim();
+  if(!trackingNo){ document.getElementById('trackNoInput').focus(); return; }
+  try{
+    const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/tracking", {
+      method:"PATCH", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({carrier, trackingNo})
+    });
+    if(!res.ok) throw new Error("서버 응답 "+res.status);
+    closeTrackSheet();
+    toast(`<span>${sr} 송장 등록 완료 · 알림은 아직 안 감</span>`);
+    await loadData();
+  }catch(e){ alert(sr+" 등록에 실패했어요: "+(e.message||"연결 오류")); }
+}
+async function saveTrackSeq(){
+  const sr = trackPending; if(!sr) return;
+  const seq = document.getElementById('trackSeqInput').value.trim();
+  if(!seq){ document.getElementById('trackSeqInput').focus(); return; }
   try{
     const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/link-order", {
       method:"PATCH", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({seq: seq.trim()})
+      body: JSON.stringify({seq})
     });
     if(!res.ok) throw new Error("서버 응답 "+res.status);
-    toast(`${SLK}<span>${sr} 관리번호 연결 완료 · 자동 확인 시작</span>`);
+    closeTrackSheet();
+    toast(`<span>${sr} 관리번호 연결 완료 · 자동 확인 시작 (알림은 아직 안 감)</span>`);
     await loadData();
-  }catch(e){ alert(sr+" 연결에 실패했습니다: "+(e.message||"연결 오류")); }
+  }catch(e){ alert(sr+" 연결에 실패했어요: "+(e.message||"연결 오류")); }
+}
+async function notifyTracking(sr){
+  try{
+    const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/notify-tracking", {method:"POST"});
+    if(!res.ok) throw new Error("서버 응답 "+res.status);
+    const r = DATA.find(x=>x.sr===sr);
+    toast(`${SLK}<span><b>${r?r.by:''}</b>님께 송장 알림 전송 · ${sr}</span>`);
+    await loadData();
+  }catch(e){ alert(sr+" 알림 전송에 실패했어요: "+(e.message||"연결 오류")); }
 }
 
 function applyHold(sr, reason){
@@ -775,10 +1099,35 @@ document.addEventListener('keydown',e=>{
   }
 });
 
+// ── 송장 등록 시트 이벤트 ──
+document.addEventListener('click', e=>{
+  if(e.target.closest('[data-close-track]') || e.target.id==='trackScrim'){ closeTrackSheet(); return; }
+  const tab = e.target.closest('[data-trackmode]');
+  if(tab){ setTrackMode(tab.dataset.trackmode); return; }
+  if(e.target.id==='trackManualSave'){ saveTrackManual(); return; }
+  if(e.target.id==='trackSeqSave'){ saveTrackSeq(); return; }
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') closeTrackSheet();
+});
+
 (function clock(){
   const f=new Intl.DateTimeFormat('ko-KR',{month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'});
   document.getElementById('clock').textContent = f.format(TODAY);
 })();
+
+  (function(){
+    const root=document.documentElement, btn=document.getElementById("themeToggle");
+    const mq=window.matchMedia?window.matchMedia("(prefers-color-scheme: dark)"):{matches:false,addEventListener:function(){}};
+    let manual=false;
+    if(!root.getAttribute("data-theme")) root.setAttribute("data-theme", mq.matches?"dark":"light");
+    if(mq.addEventListener) mq.addEventListener("change",e=>{ if(!manual) root.setAttribute("data-theme", e.matches?"dark":"light"); });
+    if(btn) btn.addEventListener("click",()=>{
+      manual=true;
+      const cur=root.getAttribute("data-theme")||"light";
+      root.setAttribute("data-theme", cur==="dark"?"light":"dark");
+    });
+  })();
 function escHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -810,7 +1159,7 @@ function renderAlertPanel(list){
       <div style="font-weight:700;color:#E05A47;font-size:13px;margin-bottom:4px;">⚠ 요청 변경 알림</div>
       <div style="font-size:13px;line-height:1.5;color:#20242C;">
         <strong>${escHtml(a.requestId)}</strong> (${escHtml(a.team)} · ${escHtml(a.requester)})<br>
-        이미 처리 중이던 요청이 <strong>${label}</strong>되었습니다.
+        이미 처리 중이던 요청이 <strong>${label}</strong>되었어요.
       </div>
       <div style="margin-top:8px;text-align:right;">
         <button type="button" class="alertAckBtn" data-id="${escHtml(a.requestId)}"
@@ -839,16 +1188,40 @@ async function loadData(){
       qty:r.qty, want:r.want, to:r.to, note:r.note||'',
       status:r.status, hold:r.hold||null, scope:r.scope||'team',
       assignee:r.assignee||null, sent:!!r.sent,
-      carrier:r.carrier||null, trackingNo:r.trackingNo||null, ezadminSeq:r.ezadminSeq||null,
+      carrier:r.carrier||null, trackingNo:r.trackingNo||null, trackingNotified:!!r.trackingNotified, ezadminSeq:r.ezadminSeq||null,
+      products:[],
     }));
-    await loadStock(DATA.map(r=>r.sku));
+
+    // 주문별 '전체 상품' 목록 — logistics-view엔 대표상품만 있어서,
+    // 요청서 대장(ledger)에서 productsJson을 가져와 붙입니다. (배포 없이 상품 펼쳐보기 지원)
+    try {
+      const lr = await fetch(API_BASE + "/api/requests/ledger");
+      if (lr.ok) {
+        const ledger = await lr.json();
+        const byId = {};
+        ledger.forEach(v => {
+          let ps = [];
+          try { const j = JSON.parse(v.productsJson || "[]"); if (Array.isArray(j)) ps = j; } catch (e) {}
+          byId[v.requestId] = ps;
+        });
+        DATA.forEach(r => { r.products = byId[r.sr] || []; });
+      }
+    } catch (e) { /* 상품 목록 조회 실패해도 대표상품 화면은 정상 동작 */ }
+
+    // 대표 SKU + 모든 상품 코드의 재고를 한 번에 조회
+    const allCodes = [];
+    DATA.forEach(r => {
+      if (r.sku) allCodes.push(r.sku);
+      (r.products || []).forEach(p => { if (p && p.code) allCodes.push(String(p.code).trim()); });
+    });
+    await loadStock(allCodes);
     applyStock();
     rebuildState();
     render();
     pollAlerts();
   }catch(e){
     document.getElementById('list').innerHTML =
-      `<div class="empty"><div class="mk">⚠</div><p>서버에 연결하지 못했습니다.<br>잠시 후 자동으로 다시 시도합니다.</p></div>`;
+      `<div class="empty"><div class="mk">⚠</div><p>서버에 연결하지 못했어요.<br>잠시 후 자동으로 다시 시도할게요.</p></div>`;
   }
 }
 
