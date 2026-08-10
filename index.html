@@ -654,7 +654,16 @@ const willEscalate = r => state.get(r.sr).status==='대기' && dday(r) <= -2;
 const BUCKETS=[{k:'day',t:'일별'},{k:'week',t:'주간'},{k:'month',t:'월간'}];
 const SCOPES=[{k:'team',t:'물류 통합'},{k:'person',t:'개인 요청'}];
 
-function view(){return DATA.filter(r=>bucket(r)===TAB && r.scope===SCOPE);}
+// 완료 + 요청자에게 '완료 전송'까지 끝난 건은 작업 목록에서 숨깁니다.
+// (완료했지만 아직 전송 안 한 건은 '완료 전송'을 눌러야 하므로 계속 보입니다.)
+function view(){
+  return DATA.filter(r=>{
+    if(bucket(r)!==TAB || r.scope!==SCOPE) return false;
+    const st = state.get(r.sr);
+    if(st.status==='완료' && st.sent) return false;   // 완료+전송완료 → 숨김
+    return true;
+  });
+}
 
 function renderTabs(){
   document.getElementById('tabs').innerHTML = BUCKETS.map(b=>{
