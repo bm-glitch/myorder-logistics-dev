@@ -531,6 +531,9 @@
   </div>
   <div class="tabs" role="tablist" id="tabs"></div>
   <div class="subtabs" id="subtabs"></div>
+  <div style="padding:6px 0 0;">
+    <button id="doneToggle" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:13px;line-height:1;">✅ 완료건 보기</button>
+  </div>
 </header>
 
 <main id="list"></main>
@@ -634,6 +637,7 @@ const dday = r => Math.round((d0(r.want)-t0)/864e5);
 const bucket = r => {const d=dday(r); return d<=0?'day':(d<=7?'week':'month');};
 
 let TAB='day', SCOPE='team';
+let SHOW_DONE=false; // true면 '완료건 시트'(완료된 건만 모아 보기) 모드
 let state = new Map();
 function rebuildState() {
   state = new Map(DATA.map(r=>[r.sr,{status:r.status, checked:r.status==='완료', sent:r.sent, hold:r.hold||null}]));
@@ -658,9 +662,15 @@ const SCOPES=[{k:'team',t:'물류 통합'},{k:'person',t:'개인 요청'}];
 // (완료했지만 아직 전송 안 한 건은 '완료 전송'을 눌러야 하므로 계속 보입니다.)
 function view(){
   return DATA.filter(r=>{
-    if(bucket(r)!==TAB || r.scope!==SCOPE) return false;
+    if(r.scope!==SCOPE) return false;
     const st = state.get(r.sr);
-    if(st.status==='완료' && st.sent) return false;   // 완료+전송완료 → 숨김
+    if(SHOW_DONE){
+      // 완료건 시트: 완료 상태인 건만 모아서 보여줍니다(전송 여부 무관).
+      // 완료 후에도 여기서 송장 기입 등 사후 작업을 할 수 있어요.
+      return st.status==='완료';
+    }
+    if(bucket(r)!==TAB) return false;
+    if(st.status==='완료' && st.sent) return false;   // 평상시 목록: 완료+전송완료는 숨김
     return true;
   });
 }
@@ -863,6 +873,15 @@ document.addEventListener('click',e=>{
   if(tab){TAB=tab.dataset.tab; render(); return;}
   const sub=e.target.closest('[data-scope]');
   if(sub){SCOPE=sub.dataset.scope; render(); return;}
+  const dt=e.target.closest('#doneToggle');
+  if(dt){
+    SHOW_DONE=!SHOW_DONE;
+    dt.textContent = SHOW_DONE ? '↩ 작업 목록으로' : '✅ 완료건 보기';
+    dt.style.background = SHOW_DONE ? '#16794d' : 'var(--card)';
+    dt.style.color = SHOW_DONE ? '#fff' : 'var(--ink-60)';
+    render();
+    return;
+  }
 
   const btn=e.target.closest('[data-act]');
   if(!btn) return;
