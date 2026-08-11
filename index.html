@@ -568,22 +568,10 @@
   </div>
 
   <div id="trackManual">
-    <div class="trackfield">
-      <label>택배사</label>
-      <select id="trackCarrier">
-        <option value="CJ대한통운">CJ대한통운</option>
-        <option value="한진택배">한진택배</option>
-        <option value="롯데택배">롯데택배</option>
-        <option value="로젠택배">로젠택배</option>
-        <option value="우체국택배">우체국택배</option>
-        <option value="기타">기타</option>
-      </select>
-    </div>
-    <div class="trackfield">
-      <label>송장번호</label>
-      <input id="trackNoInput" type="text" placeholder="예: 123456789012" inputmode="numeric">
-    </div>
-    <p class="trackhint">등록만 돼요 — 요청자에게 알림은 가지 않아요. 목록에서 "송장 알림 보내기" 버튼을 눌러야 전달돼요.</p>
+    <label style="display:block;font-size:11.5px;font-weight:700;color:var(--ink-60);margin-bottom:8px;">택배사 · 송장번호</label>
+    <div id="trackRows"></div>
+    <button type="button" id="addTrackRow" style="appearance:none;cursor:pointer;font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--stamp-blue);background:#fff;border:1px dashed var(--stamp-blue);border-radius:7px;padding:9px 12px;width:100%;margin-bottom:12px;">+ 송장 추가</button>
+    <p class="trackhint">한 주문을 여러 개로 나눠 보낼 땐 "+ 송장 추가"로 칸을 늘려 각각 입력하세요. 등록만 돼요 — 요청자 알림은 목록의 "송장 알림 보내기"를 눌러야 전달돼요.</p>
     <button type="button" class="tracksave" id="trackManualSave">등록만 하기</button>
   </div>
 
@@ -817,8 +805,11 @@ function row(r){
       ${esc?`<div class="holdbar" style="background:#FBEDEC;border-color:#EFC5C1;color:var(--stamp-red)">
         <span class="pz" style="background:var(--stamp-red)">에스컬레이션</span>
         <span>2일 초과 — 팀장 보고 대상 (파일럿 중 발송 OFF)</span></div>`:''}
-      ${r.trackingNo?`<div class="trackinfo">
-        <span>🚚</span><span>${escHtml(r.carrier||'')}</span><span class="tno">${escHtml(r.trackingNo)}</span>
+      ${(r.trackings&&r.trackings.length)?`<div class="trackinfo">
+        <span>🚚</span>
+        <span style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+          ${r.trackings.map(t=>`<span>${escHtml(t.carrier||'')} <span class="tno">${escHtml(t.trackingNo||'')}</span></span>`).join('')}
+        </span>
         <button type="button" class="notifytrackbtn${r.trackingNotified?' sent':''}" data-act="notifytrack">${r.trackingNotified?'알림 전송됨':'📨 송장 알림 보내기'}</button>
       </div>`:''}
       <div class="actions">
@@ -995,20 +986,34 @@ async function patchNotify(sr){
 
 // ── 송장 등록 시트 (등록과 알림을 분리) ──
 let trackPending=null;
+const TRACK_CARRIERS = ['CJ대한통운','한진택배','롯데택배','로젠택배','우체국택배','기타'];
+function trackRowHtml(carrier, no){
+  const opts = TRACK_CARRIERS.map(c=>`<option value="${c}"${c===carrier?' selected':''}>${c}</option>`).join('');
+  return `<div class="trackrow" style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+    <select class="trkCarrier" style="flex:0 0 40%;box-sizing:border-box;font-family:var(--sans);font-size:13px;padding:10px;border:1px solid var(--rule-2);border-radius:7px;background:#fff;color:var(--ink);">${opts}</select>
+    <input class="trkNo" type="text" inputmode="numeric" placeholder="송장번호" value="${escHtml(no||'')}" style="flex:1;min-width:0;box-sizing:border-box;font-family:var(--sans);font-size:13px;padding:10px;border:1px solid var(--rule-2);border-radius:7px;background:#fff;color:var(--ink);">
+    <button type="button" class="trkDel" aria-label="이 송장 삭제" style="flex:none;appearance:none;cursor:pointer;width:36px;height:39px;border:1px solid var(--rule-2);border-radius:7px;background:#fff;color:var(--ink-35);font-size:15px;">✕</button>
+  </div>`;
+}
+function addTrackRow(carrier, no){
+  document.getElementById('trackRows').insertAdjacentHTML('beforeend', trackRowHtml(carrier||'CJ대한통운', no||''));
+}
 function openTrackSheet(sr){
   const r = DATA.find(x=>x.sr===sr);
-  if (r && r.trackingNo) { alert(sr+"은 이미 송장이 등록되어 있어요: "+r.trackingNo+"\n(요청자 알림은 목록의 '송장 알림 보내기' 버튼으로 보내세요)"); return; }
-  if (r && r.ezadminSeq) { alert(sr+"은 이지어드민 관리번호("+r.ezadminSeq+")가 이미 연결되어 있어요. 송장이 등록되면 자동으로 채워져요."); return; }
-
+  if (!r) return;
+  if (r.ezadminSeq) { alert(sr+"은 이지어드민 관리번호("+r.ezadminSeq+")가 연결돼 있어요. 송장이 등록되면 자동으로 채워져요."); return; }
   trackPending = sr;
   document.getElementById('track-sub').innerHTML = `<b>${sr}</b> · ${escHtml(r.item)} — 등록만 하면 알림은 가지 않아요.`;
-  document.getElementById('trackCarrier').value = 'CJ대한통운';
-  document.getElementById('trackNoInput').value = '';
+  const rows = document.getElementById('trackRows');
+  rows.innerHTML = '';
+  const existing = (r.trackings && r.trackings.length) ? r.trackings : [];
+  if (existing.length) existing.forEach(t=>addTrackRow(t.carrier, t.trackingNo));
+  else addTrackRow('CJ대한통운','');
   document.getElementById('trackSeqInput').value = '';
   setTrackMode('manual');
   document.getElementById('trackScrim').classList.add('on');
   document.getElementById('trackSheet').classList.add('on');
-  setTimeout(()=>document.getElementById('trackNoInput').focus(), 50);
+  setTimeout(()=>{ const f=document.querySelector('#trackRows .trkNo'); if(f) f.focus(); }, 50);
 }
 function closeTrackSheet(){
   trackPending = null;
@@ -1022,17 +1027,19 @@ function setTrackMode(mode){
 }
 async function saveTrackManual(){
   const sr = trackPending; if(!sr) return;
-  const carrier = document.getElementById('trackCarrier').value;
-  const trackingNo = document.getElementById('trackNoInput').value.trim();
-  if(!trackingNo){ document.getElementById('trackNoInput').focus(); return; }
+  const trackings = [...document.querySelectorAll('#trackRows .trackrow')].map(row=>({
+    carrier: row.querySelector('.trkCarrier').value,
+    trackingNo: row.querySelector('.trkNo').value.trim()
+  })).filter(t=>t.trackingNo);
+  if(!trackings.length){ const f=document.querySelector('#trackRows .trkNo'); if(f) f.focus(); return; }
   try{
     const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/tracking", {
       method:"PATCH", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({carrier, trackingNo})
+      body: JSON.stringify({trackings})
     });
     if(!res.ok) throw new Error("서버 응답 "+res.status);
     closeTrackSheet();
-    toast(`<span>${sr} 송장 등록 완료 · 알림은 아직 안 감</span>`);
+    toast(`<span>${sr} 송장 ${trackings.length}건 저장 완료 · 알림은 아직 안 감</span>`);
     await loadData();
   }catch(e){ alert(sr+" 등록에 실패했어요: "+(e.message||"연결 오류")); }
 }
@@ -1132,6 +1139,17 @@ document.addEventListener('click', e=>{
   if(e.target.closest('[data-close-track]') || e.target.id==='trackScrim'){ closeTrackSheet(); return; }
   const tab = e.target.closest('[data-trackmode]');
   if(tab){ setTrackMode(tab.dataset.trackmode); return; }
+  if(e.target.id==='addTrackRow'){
+    addTrackRow('CJ대한통운','');
+    const nos=document.querySelectorAll('#trackRows .trkNo'); if(nos.length) nos[nos.length-1].focus();
+    return;
+  }
+  const del=e.target.closest('.trkDel');
+  if(del){
+    del.closest('.trackrow').remove();
+    if(!document.querySelector('#trackRows .trackrow')) addTrackRow('CJ대한통운','');
+    return;
+  }
   if(e.target.id==='trackManualSave'){ saveTrackManual(); return; }
   if(e.target.id==='trackSeqSave'){ saveTrackSeq(); return; }
 });
@@ -1217,6 +1235,7 @@ async function loadData(){
       status:r.status, hold:r.hold||null, scope:r.scope||'team',
       assignee:r.assignee||null, sent:!!r.sent,
       carrier:r.carrier||null, trackingNo:r.trackingNo||null, trackingNotified:!!r.trackingNotified, ezadminSeq:r.ezadminSeq||null,
+      trackings:r.trackings||[],
       products:[],
     }));
 
