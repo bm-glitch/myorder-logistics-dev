@@ -534,6 +534,13 @@
   <div style="padding:6px 0 0;">
     <button id="doneToggle" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:13px;line-height:1;">✅ 완료건 보기</button>
   </div>
+  <div id="ssBar" style="padding:8px 0 2px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <strong style="font-size:12px;color:var(--stamp-blue);white-space:nowrap;">📦 실시간 재고 검색</strong>
+      <input id="ssInput" type="text" placeholder="상품명·코드로 검색" style="flex:1;min-width:150px;font-size:13px;padding:7px 10px;border:1px solid var(--rule-2);border-radius:7px;background:var(--card);color:var(--ink);box-sizing:border-box;">
+    </div>
+    <div id="ssResults" style="margin-top:6px;max-height:220px;overflow:auto;"></div>
+  </div>
 </header>
 
 <main id="list"></main>
@@ -591,7 +598,16 @@
 
 <script>
 const API_BASE = "https://logistics-backend-production-dabb.up.railway.app";
+const API_STOCK = API_BASE + "/api/stock";
 const TODAY = new Date();
+
+// 상품 매칭용 헬퍼(대시보드와 동일 원리)
+function memKey(s){ return String(s==null?"":s).replace(/\s+/g,"").replace(/[\[\]()（）·.,\-_/#*★⭐]/g,"").toLowerCase(); }
+async function searchCatalog(q){
+  const k=String(q==null?"":q).trim(); if(!k) return [];
+  try{ const rr=await fetch(API_STOCK+"/search?q="+encodeURIComponent(k)+"&withStock=true"); if(rr.ok){ const l=await rr.json(); if(Array.isArray(l)) return l; } }catch(e){}
+  return [];
+}
 
 // ── 실제 데이터 (서버 연동) ──
 // 재고(phys/inv/pend)는 여기서 만들지 않고, 화면이 열릴 때 /api/stock 으로
@@ -806,6 +822,7 @@ function row(r){
       </div>
       <div class="item">${r.item} <span class="opt">${r.opt!=='—'?r.opt:''}</span> <span class="qty">×${r.qty.toLocaleString()}</span>${(r.products&&r.products.length>1)?` <span class="opt">외 ${r.products.length-1}건</span>`:''}</div>
       ${stockBox(r)}
+      <div style="margin-top:6px;"><button type="button" data-act="fixmatch" style="appearance:none;cursor:pointer;font-family:var(--sans);font-size:11px;font-weight:700;border-radius:6px;padding:5px 9px;border:1px solid var(--rule-2);background:var(--card);color:var(--stamp-blue);">🔧 상품 정정</button></div>
       ${(r.products&&r.products.length>1)?`<button class="prodtoggle" data-act="expandprods" aria-expanded="false">📋 상품 ${r.products.length}개 · 펼쳐보기 <span class="chev">▾</span></button>${prodPanel(r, r.products)}`:''}
       <div class="line3">
         <span class="meta">희망 <b>${r.want.slice(5).replace('-','/')}</b></span>
@@ -892,6 +909,8 @@ document.addEventListener('click',e=>{
   const sr=btn.closest('.row').dataset.sr;
   const st=state.get(sr);
   const r=DATA.find(x=>x.sr===sr);
+
+  if(btn.dataset.act==='fixmatch'){ openFixMatch(r); return; }
 
   if(btn.dataset.act==='status'){
     const next = st.status==='대기'?'진행중':(st.status==='진행중'?'완료':'대기');
@@ -1297,6 +1316,80 @@ async function loadData(){
     document.getElementById('list').innerHTML =
       `<div class="empty"><div class="mk">⚠</div><p>서버에 연결하지 못했어요.<br>잠시 후 자동으로 다시 시도할게요.</p></div>`;
   }
+}
+
+// ===== 재고검색 배너 동작 =====
+(function(){
+  const inp=document.getElementById('ssInput'); if(!inp) return;
+  const box=document.getElementById('ssResults');
+  let t;
+  inp.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(async()=>{
+    const q=inp.value.trim();
+    if(!q){ box.innerHTML=''; return; }
+    box.innerHTML='<div style="font-size:12px;color:var(--ink-35);padding:6px;">검색 중…</div>';
+    const list=await searchCatalog(q);
+    if(!list.length){ box.innerHTML='<div style="font-size:12px;color:var(--ink-35);padding:6px;">결과 없음</div>'; return; }
+    box.innerHTML=list.slice(0,20).map(c=>`<div style="padding:7px 9px;border:1px solid var(--rule);border-radius:7px;margin-bottom:4px;font-size:12px;background:var(--card);">
+      <b>${escHtml(c.name||'')}</b> <span style="color:var(--ink-35);">${escHtml(c.option||'')}</span><br>
+      <span style="color:var(--stamp-blue);">${escHtml(c.productId||'')}</span>${c.available!=null?` · <b>가용 ${Number(c.available).toLocaleString()}</b>`:''}</div>`).join('');
+  },300); });
+})();
+
+// ===== 물류 상품 매칭 정정 모달 (+ 학습 저장) =====
+function openFixMatch(r){
+  if(!r) return;
+  const prods = (r.products && r.products.length) ? r.products.slice()
+              : [{code:r.sku||'', name:r.item||'', option:(r.opt&&r.opt!=='—')?r.opt:'', qty:r.qty}];
+  let host=document.getElementById('fixMatchModal');
+  if(!host){ host=document.createElement('div'); host.id='fixMatchModal'; document.body.appendChild(host); }
+  host.style.display='block';
+  host.innerHTML=`
+    <div class="fmOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998;"></div>
+    <div style="position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;overflow:auto;background:var(--card);color:var(--ink);border-radius:14px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.35);">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong style="font-size:15px;">🔧 상품 매칭 정정 · ${escHtml(r.sr)}</strong>
+        <button type="button" class="fmClose" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:6px;padding:4px 9px;cursor:pointer;">닫기 ✕</button>
+      </div>
+      <div style="font-size:12px;color:var(--ink-35);margin:6px 0 8px;">올바른 상품을 검색해 고르면 코드·옵션이 바뀌고(가용재고 반영), 다음부터 같은 상품명은 자동으로 매칭돼요.</div>
+      ${prods.map((p,i)=>`
+        <div style="border:1px solid var(--rule);border-radius:9px;padding:9px;margin-bottom:8px;">
+          <div style="font-size:12.5px;margin-bottom:4px;">${escHtml(p.name||'')} <span style="color:var(--ink-35);">${escHtml(p.option||'')}</span></div>
+          <div style="font-size:11px;color:var(--ink-35);margin-bottom:6px;">현재 코드: <b>${escHtml(p.code||'없음')}</b></div>
+          <input type="text" class="fmQuery" data-i="${i}" placeholder="상품명·코드로 검색" value="${escHtml(p.name||'')}" style="width:100%;font-size:13px;padding:7px 9px;border:1px solid var(--rule-2);border-radius:7px;background:var(--card);color:var(--ink);box-sizing:border-box;">
+          <div class="fmResults" data-i="${i}" style="max-height:150px;overflow:auto;margin-top:5px;"></div>
+        </div>`).join('')}
+    </div>`;
+  const close=()=>{ host.style.display='none'; };
+  host.querySelector('.fmOverlay').addEventListener('click',close);
+  host.querySelector('.fmClose').addEventListener('click',close);
+  host.querySelectorAll('.fmQuery').forEach(inp=>{
+    let t;
+    const run=async()=>{
+      const i=+inp.dataset.i; const res=host.querySelector('.fmResults[data-i="'+i+'"]');
+      const q=inp.value.trim(); if(!q){ res.innerHTML=''; return; }
+      res.innerHTML='<div style="font-size:12px;color:var(--ink-35);padding:5px;">검색 중…</div>';
+      const list=await searchCatalog(q);
+      if(!list.length){ res.innerHTML='<div style="font-size:12px;color:var(--ink-35);padding:5px;">결과 없음</div>'; return; }
+      res._cands=list;
+      res.innerHTML=list.slice(0,15).map((c,ci)=>`<div class="fmPick" data-i="${i}" data-ci="${ci}" style="padding:6px 8px;border:1px solid var(--rule);border-radius:7px;margin-bottom:4px;cursor:pointer;font-size:12px;">
+        <b>${escHtml(c.name||'')}</b> <span style="color:var(--ink-35);">${escHtml(c.option||'')}</span><br><span style="color:var(--stamp-blue);">${escHtml(c.productId||'')}</span>${c.available!=null?` · 가용 ${Number(c.available).toLocaleString()}`:''}</div>`).join('');
+      res.querySelectorAll('.fmPick').forEach(el=>el.addEventListener('click',async()=>{
+        const c=res._cands[+el.dataset.ci]; const idx=+el.dataset.i;
+        const original = (prods[idx] && prods[idx].name) || r.item || '';
+        el.textContent='저장 중…';
+        try{
+          const rr=await fetch(API_BASE+"/api/requests/"+encodeURIComponent(r.sr)+"/rematch",{
+            method:"PATCH", headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({index:idx, productId:c.productId, option:c.option||"", name:c.name||"", aliasKey:memKey(original), sourceName:original})
+          });
+          if(!rr.ok) throw new Error(rr.status);
+          close(); await loadData();
+        }catch(err){ alert("정정 저장에 실패했어요. 잠시 후 다시 시도해 주세요."); }
+      }));
+    };
+    inp.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(run,300); });
+    run();
+  });
 }
 
 loadData();
