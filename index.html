@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!-- 송장 일괄 전송용 엑셀 생성 (요청자에게 보낼 유상/무상 양식 파일을 이 화면에서 만듭니다) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --ink:#2A2C2F;
@@ -531,8 +533,9 @@
   </div>
   <div class="tabs" role="tablist" id="tabs"></div>
   <div class="subtabs" id="subtabs"></div>
-  <div style="padding:6px 0 0;">
+  <div style="padding:6px 0 0;display:flex;gap:6px;flex-wrap:wrap;">
     <button id="doneToggle" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:13px;line-height:1;">✅ 완료건 보기</button>
+    <button id="bulkToggle" title="여러 주문건을 골라 송장 엑셀 + 알림을 한 번에 보냅니다" style="appearance:none;border:1px solid var(--stamp-blue);background:var(--card);color:var(--stamp-blue);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:700;line-height:1;">📦 송장 일괄 전송</button>
   </div>
   <div id="ssBar" style="padding:8px 0 2px;">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -592,6 +595,18 @@
   </div>
 
   <button class="cancel" data-close-track>취소</button>
+</div>
+
+<!-- 송장 일괄 전송 — 고른 건수/요청자를 보여주고 한 번에 보냅니다 -->
+<div id="bulkBar" style="display:none;position:fixed;left:0;right:0;bottom:calc(56px + env(safe-area-inset-bottom));z-index:60;
+     background:var(--card);border-top:1px solid var(--rule-2);box-shadow:0 -6px 18px rgba(0,0,0,.10);
+     padding:10px 14px;">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:860px;margin:0 auto;">
+    <strong id="bulkCount" style="font-size:13px;color:var(--ink);">0건 선택</strong>
+    <span id="bulkWho" style="font-size:12px;color:var(--ink-35);flex:1;min-width:80px;"></span>
+    <button type="button" id="bulkClear" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:7px;padding:8px 12px;cursor:pointer;font-size:12.5px;">선택 해제</button>
+    <button type="button" id="bulkSend" disabled style="appearance:none;border:1px solid var(--stamp-blue);background:var(--stamp-blue);color:#fff;border-radius:7px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700;opacity:.45;">📨 엑셀+알림 한 번에 보내기</button>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -811,10 +826,12 @@ function row(r){
                '완료':['st-done','완료'],'보류':['st-hold','보류']};
   const [sc,sl]=stMap[st.status];
 
-  return `<article class="${cls}" data-sr="${r.sr}">
+  return `<article class="${cls}" data-sr="${r.sr}"${(BULK && BULK_SEL.has(r.sr)) ? ' style="outline:2px solid var(--stamp-blue);outline-offset:-1px;"' : ''}>
     <div class="dday"><span class="num">${num}</span><span class="unit">${unit}</span></div>
     <div class="body">
       <div class="line1">
+        ${BULK ? `<label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--stamp-blue);cursor:pointer;margin-right:2px;">
+          <input type="checkbox" data-act="pick" data-sr="${r.sr}" ${BULK_SEL.has(r.sr) ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--stamp-blue);cursor:pointer;">선택</label>` : ''}
         <span class="sr">${r.sr}</span>
         <span class="team">${r.team}</span>
         <span class="who">${r.by}</span>
@@ -904,8 +921,28 @@ document.addEventListener('click',e=>{
     return;
   }
 
+  // 📦 송장 일괄 전송 — 모드 켜기/끄기, 선택 해제, 전송
+  const bt=e.target.closest('#bulkToggle');
+  if(bt){ setBulk(!BULK); return; }
+  const bc=e.target.closest('#bulkClear');
+  if(bc){ BULK_SEL.clear(); render(); updateBulkBar(); return; }
+  const bs=e.target.closest('#bulkSend');
+  if(bs){ if(!bs.disabled) sendBulk(); return; }
+
   const btn=e.target.closest('[data-act]');
   if(!btn) return;
+
+  // 카드의 '선택' 체크박스 (일괄 전송용)
+  if(btn.dataset.act==='pick'){
+    const id=btn.dataset.sr;
+    if(btn.checked) BULK_SEL.add(id); else BULK_SEL.delete(id);
+    const card=btn.closest('.row');
+    if(card) card.style.outline = btn.checked ? '2px solid var(--stamp-blue)' : '';
+    if(card) card.style.outlineOffset = btn.checked ? '-1px' : '';
+    updateBulkBar();
+    return;
+  }
+
   const sr=btn.closest('.row').dataset.sr;
   const st=state.get(sr);
   const r=DATA.find(x=>x.sr===sr);
@@ -1090,6 +1127,158 @@ async function saveTrackSeq(){
     await loadData();
   }catch(e){ alert(sr+" 연결에 실패했어요: "+(e.message||"연결 오류")); }
 }
+/* =====================================================================
+   📦 송장 일괄 전송
+   요청자가 엑셀 한 장으로 여러 주문건을 보냈을 때, 돌아가는 알림도 한 번으로.
+    1) 요청건들을 고른다
+    2) 고른 건들의 송장번호를 "유상/무상 양식"(주문일·주문시간 제외 + 송장번호 추가)에 채운 엑셀을 만든다
+    3) 알림 1건 + 그 엑셀 파일을 요청자에게 한 번에 보낸다 (요청자가 다르면 사람별로 나눠 보냄)
+   ===================================================================== */
+let BULK = false;                    // 일괄 전송 모드 on/off
+const BULK_SEL = new Set();          // 고른 요청번호
+
+// 요청자에게 보내는 양식 — 원래 다중배송 양식에서 '주문일·주문시간'을 빼고 그 자리에 '송장번호'를 넣었습니다.
+const SEND_FREE_COLS = ["주문번호","상품명","옵션","수량","송장번호","수령자이름","수령자연락처","수령자주소","배송메세지","상품코드"];
+const SEND_PAID_COLS = ["주문번호","상품명","옵션","수량","송장번호","수령자이름","수령자연락처","수령자주소","배송메세지","상품코드","판매가"];
+
+function trackText(r){
+  const list = (r.trackings && r.trackings.length)
+    ? r.trackings
+    : (r.trackingNo ? [{carrier:r.carrier||'', trackingNo:r.trackingNo}] : []);
+  return list.map(t=>String(t.trackingNo||'').trim()).filter(Boolean).join(' / ');
+}
+function setBulk(on){
+  BULK = on;
+  if(!on) BULK_SEL.clear();
+  const btn = document.getElementById('bulkToggle');
+  if(btn){
+    btn.textContent = on ? '✕ 일괄 전송 끝내기' : '📦 송장 일괄 전송';
+    btn.style.background = on ? 'var(--stamp-blue)' : 'var(--card)';
+    btn.style.color = on ? '#fff' : 'var(--stamp-blue)';
+  }
+  document.getElementById('bulkBar').style.display = on ? '' : 'none';
+  // 일괄 전송 바가 마지막 카드를 가리지 않게 아래 여백을 넉넉히 둡니다.
+  const listEl = document.getElementById('list');
+  if(listEl) listEl.style.paddingBottom = on ? '120px' : '';
+  render();
+  updateBulkBar();
+}
+
+function updateBulkBar(){
+  const n = BULK_SEL.size;
+  const cnt = document.getElementById('bulkCount');
+  const who = document.getElementById('bulkWho');
+  const send = document.getElementById('bulkSend');
+  if(cnt) cnt.textContent = n + '건 선택';
+  const rows = [...BULK_SEL].map(sr=>DATA.find(x=>x.sr===sr)).filter(Boolean);
+  const people = [...new Set(rows.map(r=>r.by).filter(Boolean))];
+  const noTrack = rows.filter(r=>!trackText(r)).length;
+  if(who){
+    who.innerHTML = !n ? '보낼 요청건을 골라 주세요 (일별·주간·월간 탭을 옮겨가며 골라도 선택은 유지돼요)'
+      : `${people.join(', ')}${people.length>1?` (${people.length}명에게 나눠 보냄)`:''}`
+        + (noTrack ? ` · <span style="color:var(--stamp-red);font-weight:700;">송장 없는 건 ${noTrack}</span>` : '');
+  }
+  if(send){
+    send.disabled = !n;
+    send.style.opacity = n ? '1' : '.45';
+    send.style.cursor = n ? 'pointer' : 'not-allowed';
+  }
+}
+
+/** 고른 요청건들을 유상/무상 시트로 나눠 엑셀(Workbook)을 만듭니다. */
+function buildSendWorkbook(rows){
+  const free = [], paid = [];
+  rows.forEach(r=>{
+    const rc = r.receiver || {};
+    const tno = trackText(r);
+    const prods = (r.products && r.products.length) ? r.products : [{code:r.sku||'', name:r.item||'', option:(r.opt==='—'?'':r.opt), qty:r.qty}];
+    prods.forEach(p=>{
+      const base = {
+        "주문번호": r.sr,
+        "상품명": p.name || '',
+        "옵션": p.option || '',
+        "수량": (p.qty != null ? p.qty : ''),
+        "송장번호": tno,
+        "수령자이름": rc.name || '',
+        "수령자연락처": rc.phone || '',
+        "수령자주소": rc.address || '',
+        "배송메세지": rc.message || '',
+        "상품코드": p.code || ''
+      };
+      if(r.billing === 'paid') paid.push(Object.assign(base, {"판매가": ''}));
+      else free.push(base);
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  if(free.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(free, {header:SEND_FREE_COLS}), "무상");
+  if(paid.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(paid, {header:SEND_PAID_COLS}), "유상");
+  return {wb, freeCount: free.length, paidCount: paid.length};
+}
+
+function wbToBase64(wb){
+  return XLSX.write(wb, {type:'base64', bookType:'xlsx'});
+}
+
+async function sendBulk(){
+  if(typeof XLSX === 'undefined'){ alert('엑셀 생성 도구를 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.'); return; }
+  const rows = [...BULK_SEL].map(sr=>DATA.find(x=>x.sr===sr)).filter(Boolean);
+  if(!rows.length) return;
+
+  // 요청자별로 묶습니다 — 사람마다 알림 1건 + 엑셀 1개
+  const groups = {};
+  rows.forEach(r=>{ (groups[r.by||'(이름없음)'] ||= []).push(r); });
+
+  const noTrack = rows.filter(r=>!trackText(r));
+  const notDone = rows.filter(r=>state.get(r.sr).status !== '완료');
+  const lines = Object.entries(groups).map(([who,g])=>`· ${who} — ${g.length}건`);
+  let msg = `아래 요청자에게 송장 엑셀 + 알림을 한 번에 보낼게요.\n\n${lines.join('\n')}\n`;
+  if(notDone.length) msg += `\n※ 아직 완료가 아닌 ${notDone.length}건은 완료 처리해서 함께 보냅니다.\n   (${notDone.map(r=>r.sr).join(', ')})\n`;
+  if(noTrack.length) msg += `\n※ 송장번호가 비어 있는 ${noTrack.length}건이 있어요. 엑셀의 송장번호 칸도 비게 됩니다.\n   (${noTrack.map(r=>r.sr).join(', ')})\n`;
+  msg += `\n계속할까요?`;
+  if(!confirm(msg)) return;
+
+  const btn = document.getElementById('bulkSend');
+  if(btn){ btn.disabled = true; btn.textContent = '보내는 중…'; btn.style.opacity = '.6'; }
+
+  const results = [];
+  for(const [who, g] of Object.entries(groups)){
+    try{
+      const {wb, freeCount, paidCount} = buildSendWorkbook(g);
+      const stamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      const fileName = `${stamp}_출고완료_송장_${who}_${g.length}건.xlsx`;
+      const res = await fetch(API_BASE + "/api/requests/batch-notify-tracking", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          srNos: g.map(r=>r.sr),
+          fileName,
+          fileBase64: wbToBase64(wb),
+          complete: true
+        })
+      });
+      if(!res.ok) throw new Error("서버 응답 " + res.status);
+      const out = await res.json();
+      results.push({who, out, wb, fileName, freeCount, paidCount});
+      // 파일 첨부에 실패했으면(봇 권한 등) 우리 쪽으로 내려받아 직접 보낼 수 있게 합니다.
+      if(!out.fileAttached){ try{ XLSX.writeFile(wb, fileName); }catch(e){} }
+    }catch(e){
+      results.push({who, error: e.message || '연결 오류'});
+    }
+  }
+
+  const okCnt = results.filter(r=>!r.error).reduce((n,r)=>n + (r.out.count||0), 0);
+  const failed = results.filter(r=>r.error);
+  const noFile = results.filter(r=>!r.error && !r.out.fileAttached);
+  let t = `${SLK}<span><b>${okCnt}건</b> 송장+완료 알림을 한 번에 보냈어요`;
+  if(noFile.length) t += ` · 파일 첨부는 실패해서 내려받았어요(슬랙 봇 권한 files:write 확인)`;
+  if(failed.length) t += ` · 실패 ${failed.length}건`;
+  t += '</span>';
+  toast(t);
+  if(failed.length) alert('일부 전송에 실패했어요:\n' + failed.map(f=>`${f.who}: ${f.error}`).join('\n'));
+
+  setBulk(false);
+  await loadData();
+}
+
 async function notifyTracking(sr){
   try{
     const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/notify-tracking", {method:"POST"});
@@ -1265,6 +1454,7 @@ async function loadData(){
       recv:r.recv, team:r.team, by:r.by, item:r.item, opt:r.opt||'—',
       qty:r.qty, want:r.want, to:r.to, note:r.note||'',
       status:r.status, hold:r.hold||null, scope:r.scope||'team',
+      receiver:{}, billing:'free', requestDate:'',
       assignee:r.assignee||null, sent:!!r.sent,
       carrier:r.carrier||null, trackingNo:r.trackingNo||null, trackingNotified:!!r.trackingNotified, ezadminSeq:r.ezadminSeq||null,
       trackings:r.trackings||[],
@@ -1281,9 +1471,21 @@ async function loadData(){
         ledger.forEach(v => {
           let ps = [];
           try { const j = JSON.parse(v.productsJson || "[]"); if (Array.isArray(j)) ps = j; } catch (e) {}
-          byId[v.requestId] = ps;
+          // 상품 목록 + 송장 일괄 전송용 수령정보/유상무상도 함께 챙겨둡니다.
+          byId[v.requestId] = {
+            products: ps,
+            receiver: v.receiver || {},
+            billing: v.billing || "free",
+            requestDate: v.requestDate || "",
+          };
         });
-        DATA.forEach(r => { r.products = byId[r.sr] || []; });
+        DATA.forEach(r => {
+          const x = byId[r.sr];
+          r.products = x ? x.products : [];
+          r.receiver = x ? x.receiver : {};
+          r.billing = x ? x.billing : "free";
+          r.requestDate = x ? x.requestDate : "";
+        });
       }
     } catch (e) { /* 상품 목록 조회 실패해도 대표상품 화면은 정상 동작 */ }
 
