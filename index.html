@@ -1291,14 +1291,24 @@ async function sendBulk(){
     }
   }
 
-  const okCnt = results.filter(r=>!r.error).reduce((n,r)=>n + (r.out.count||0), 0);
+  // out.ok 를 반드시 확인합니다 — 서버가 200을 줘도 ok:false 면 실제로는 아무것도 안 나간 겁니다
+  // (대표적으로 요청자의 Slack 주소를 못 찾은 경우). 예전엔 이걸 안 봐서 실패해도 "성공"으로 떴습니다.
+  const okResults = results.filter(r=>!r.error && r.out.ok);
+  const noTarget = results.filter(r=>!r.error && r.out.ok === false);
   const failed = results.filter(r=>r.error);
-  const noFile = results.filter(r=>!r.error && !r.out.fileAttached);
-  let t = `${SLK}<span><b>${okCnt}건</b> 송장+완료 알림을 한 번에 보냈어요`;
+  const noFile = okResults.filter(r=>!r.out.fileAttached);
+  const okCnt = okResults.reduce((n,r)=>n + (r.out.count||0), 0);
+
+  let t = `${SLK}<span>`;
+  t += okCnt ? `<b>${okCnt}건</b> 송장+완료 알림을 한 번에 보냈어요` : `알림을 보내지 못했어요`;
   if(noFile.length) t += ` · <b>엑셀은 슬랙에 첨부되지 않아</b> 이 PC로 내려받았어요 — 요청자에게 직접 전달해 주세요 (봇 권한 files:write 필요)`;
+  if(noTarget.length) t += ` · ⚠️ <b>${noTarget.map(r=>r.who).join(', ')}</b> 님은 Slack 주소를 못 찾아 알림이 못 갔어요 (완료 처리는 됐어요)`;
   if(failed.length) t += ` · 실패 ${failed.length}건`;
   t += '</span>';
   toast(t);
+  if(noTarget.length) alert('아래 요청자는 완료 처리는 됐지만 Slack 알림은 못 보냈어요 (Slack 주소를 찾지 못함):\n'
+    + noTarget.map(f=>`${f.who}: ${f.out.message||''}`).join('\n')
+    + '\n\n엑셀 파일은 이 PC로 내려받았으니 직접 전달하시거나, 요청자가 Slack으로 한 번 접촉한 뒤 다시 시도해 주세요.');
   if(failed.length) alert('일부 전송에 실패했어요:\n' + failed.map(f=>`${f.who}: ${f.error}`).join('\n'));
 
   setBulk(false);
@@ -1309,8 +1319,14 @@ async function notifyTracking(sr){
   try{
     const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/notify-tracking", {method:"POST"});
     if(!res.ok) throw new Error("서버 응답 "+res.status);
+    const out = await res.json();
     const r = DATA.find(x=>x.sr===sr);
-    toast(`${SLK}<span><b>${r?r.by:''}</b>님께 송장 알림 전송 · ${sr}</span>`);
+    // notified 를 반드시 확인합니다 — false 면 Slack 주소를 못 찾아 실제로는 아무것도 안 나간 겁니다.
+    if(out.notified === false){
+      alert(`${sr} — ${out.message || 'Slack 알림을 보내지 못했어요.'}`);
+    } else {
+      toast(`${SLK}<span><b>${r?r.by:''}</b>님께 송장 알림 전송 · ${sr}</span>`);
+    }
     await loadData();
   }catch(e){ alert(sr+" 알림 전송에 실패했어요: "+(e.message||"연결 오류")); }
 }
