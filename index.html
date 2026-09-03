@@ -409,6 +409,17 @@
   }
   .tracksave:hover{opacity:.88}
 
+  /* 송장 엑셀 일괄 등록 — 매칭 확인 표 */
+  table.matchtable{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);}
+  table.matchtable th{background:var(--paper);color:var(--ink-60);font-weight:700;font-size:11px;padding:8px 9px;text-align:left;border-bottom:1px solid var(--rule-2);position:sticky;top:0;white-space:nowrap;}
+  table.matchtable td{padding:8px 9px;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--ink);}
+  table.matchtable tr.matchrow-warn td{background:#fff6f2;}
+  table.matchtable tr.matchrow-ok td{background:#f3fbf6;}
+  table.matchtable select.matchPick{width:100%;font-size:12px;padding:6px;border:1px solid var(--rule-2);border-radius:6px;background:#fff;color:var(--ink);box-sizing:border-box;}
+  :root[data-theme="dark"] table.matchtable tr.matchrow-warn td{background:#2a1e1a;}
+  :root[data-theme="dark"] table.matchtable tr.matchrow-ok td{background:#182620;}
+  :root[data-theme="dark"] table.matchtable select.matchPick{background:#202028;}
+
   /* 행에 표시되는 송장 정보 + 알림 버튼 */
   .trackinfo{
     display:flex;align-items:center;gap:8px;flex-wrap:wrap;
@@ -536,6 +547,8 @@
   <div style="padding:6px 0 0;display:flex;gap:6px;flex-wrap:wrap;">
     <button id="doneToggle" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:13px;line-height:1;">✅ 완료건 보기</button>
     <button id="bulkToggle" title="여러 주문건을 골라 송장 엑셀 + 알림을 한 번에 보냅니다" style="appearance:none;border:1px solid var(--stamp-blue);background:var(--card);color:var(--stamp-blue);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:700;line-height:1;">📦 송장 일괄 전송</button>
+    <button id="invoiceMatchBtn" title="이지어드민에서 받은 송장 엑셀을 올리면, 수령자·연락처·주소로 요청서를 찾아 대조한 뒤 확인받고 등록해요" style="appearance:none;border:1px solid var(--stamp-green);background:var(--card);color:var(--stamp-green);border-radius:6px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:700;line-height:1;">📥 엑셀로 송장 일괄등록</button>
+    <input type="file" id="invoiceMatchFile" accept=".xls,.xlsx" style="display:none;">
   </div>
   <div style="padding:8px 0 0;">
     <input id="reqSearchInput" type="text" placeholder="🔍 요청번호·수령자·요청자·상품명으로 검색... (완료건 보기에서도 됩니다)"
@@ -599,6 +612,25 @@
   </div>
 
   <button class="cancel" data-close-track>취소</button>
+</div>
+
+<!-- 송장 엑셀 일괄 등록 — 이지어드민 발송완료 엑셀을 올리면 요청서와 자동 대조 후, 사람이 확인한 것만 등록 -->
+<div id="matchOverlay" style="display:none;position:fixed;inset:0;background:rgba(22,24,27,.55);z-index:90;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px;">
+  <div id="matchPanel" style="background:var(--card);border-radius:14px;max-width:980px;width:100%;margin:auto;box-shadow:0 16px 50px rgba(0,0,0,.35);padding:18px 18px 20px;box-sizing:border-box;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
+      <h2 style="margin:0;font-size:16px;font-weight:700;color:var(--ink);">📥 송장 엑셀 일괄 등록 — 매칭 확인</h2>
+      <button type="button" id="matchClose" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12.5px;flex:none;">닫기 ✕</button>
+    </div>
+    <p style="margin:2px 0 14px;font-size:12px;color:var(--ink-35);line-height:1.6;">
+      이지어드민에서 받은 송장 엑셀을 요청서와 자동으로 대조했어요. 이름·연락처·주소가 모두 확실히 일치하는 줄만 자동으로 체크돼 있고,
+      <b style="color:var(--stamp-red);">⚠️ 표시되거나 체크가 비어있는 줄은 반드시 사람이 직접 확인하고 체크</b>해야만 등록돼요. 실수를 막기 위한 장치이니 하나씩 눈으로 대조해 주세요.
+    </p>
+    <div id="matchTableWrap" style="overflow-x:auto;border:1px solid var(--rule-2);border-radius:10px;max-height:60vh;overflow-y:auto;"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap;">
+      <span id="matchFooterInfo" style="font-size:12.5px;color:var(--ink-60);flex:1;min-width:160px;"></span>
+      <button type="button" id="matchApply" disabled style="appearance:none;border:0;background:var(--stamp-blue);color:#fff;border-radius:7px;padding:10px 16px;cursor:pointer;font-size:13.5px;font-weight:700;opacity:.45;">선택한 건 일괄 등록</button>
+    </div>
+  </div>
 </div>
 
 <!-- 송장 일괄 전송 — 고른 건수/요청자를 보여주고 한 번에 보냅니다 -->
@@ -1144,6 +1176,223 @@ async function saveTrackSeq(){
     await loadData();
   }catch(e){ alert(sr+" 연결에 실패했어요: "+(e.message||"연결 오류")); }
 }
+
+/* =====================================================================
+   📥 송장 엑셀 일괄 등록
+   이지어드민에서 "발송완료" 상태로 받은 엑셀(수령자·연락처·주소·택배사·송장번호)을
+   올리면, 아직 송장이 없는 요청서들과 자동으로 대조합니다.
+   ⚠️ 오매칭 방지가 최우선이라 — 이름+연락처(또는 관리번호)까지 정확히 일치하는
+   "확실한" 줄만 자동으로 체크해두고, 조금이라도 애매하면(후보 여럿·정보 불일치·
+   자동매칭 실패) 절대 자동으로 체크하지 않습니다. 사람이 표를 보고 직접 확인해서
+   체크(또는 후보 중 직접 선택)해야만 등록 대상에 포함됩니다.
+   ===================================================================== */
+const _mText = (s) => String(s == null ? "" : s).replace(/\s+/g, "")
+  .replace(/[\[\]()（）·.,\-_/#*★⭐"']/g, "").toLowerCase();
+const _mPhone = (s) => String(s == null ? "" : s).replace(/\D/g, "");
+const _mAddr = (s) => String(s == null ? "" : s).replace(/\s+/g, "")
+  .replace(/[()（）,.\-]/g, "").toLowerCase();
+
+const INV_COLS = {
+  name:    ["수령자", "수령인", "받는분", "받는사람", "수취인", "고객명"],
+  phone:   ["수령자휴대폰", "수령자연락처", "수령자전화", "휴대폰", "연락처", "전화번호", "수취인연락처"],
+  addr:    ["수령자주소", "주소", "배송지"],
+  item:    ["상품명", "제품명", "품목명"],
+  opt:     ["옵션", "옵션명", "옵션값"],
+  carrier: ["택배사"],
+  tno:     ["송장번호"],
+  seq:     ["관리번호"],
+};
+function pickInvCol(header, names) {
+  const H = header.map(h => _mText(h));
+  for (const n of names) { const k = _mText(n); const i = H.indexOf(k); if (i >= 0) return i; }
+  for (const n of names) { const k = _mText(n); const i = H.findIndex(h => h && h.includes(k)); if (i >= 0) return i; }
+  return -1;
+}
+
+let MATCH_ROWS = [];
+
+function computeMatchWarns(match, m) {
+  const warns = [];
+  if (_mText(match.receiver.name) !== _mText(m.name)) warns.push("이름");
+  if (m.phone && _mPhone(match.receiver.phone) !== _mPhone(m.phone)) warns.push("연락처");
+  if (m.addr && _mAddr(match.receiver.address) !== _mAddr(m.addr)) warns.push("주소");
+  return warns;
+}
+
+async function openInvoiceMatch(file) {
+  let aoa;
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
+    aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+  } catch (e) { alert("파일을 읽지 못했어요: " + (e.message || "")); return; }
+  if (!aoa || !aoa.length) { alert("빈 파일이에요."); return; }
+
+  const header = aoa[0];
+  const cols = {};
+  Object.keys(INV_COLS).forEach(k => { cols[k] = pickInvCol(header, INV_COLS[k]); });
+  if (cols.name < 0 || cols.tno < 0) {
+    alert('이 파일에서 "수령자"·"송장번호" 칸을 찾지 못했어요. 이지어드민에서 받은 송장 엑셀이 맞는지 확인해 주세요.');
+    return;
+  }
+  const body = aoa.slice(1).filter(row => row.some(c => String(c || "").trim()));
+
+  // 매칭 대상 풀 — 아직 송장이 등록되지 않은 요청서만 (이미 등록된 건 실수로 덮어쓰지 않기 위해 제외)
+  const pool = DATA.filter(r => !trackText(r));
+
+  MATCH_ROWS = body.map(row => {
+    const name = String(row[cols.name] ?? "").trim();
+    const phone = cols.phone >= 0 ? String(row[cols.phone] ?? "").trim() : "";
+    const addr = cols.addr >= 0 ? String(row[cols.addr] ?? "").trim() : "";
+    const item = cols.item >= 0 ? String(row[cols.item] ?? "").trim() : "";
+    const opt = cols.opt >= 0 ? String(row[cols.opt] ?? "").trim() : "";
+    const carrier = cols.carrier >= 0 ? String(row[cols.carrier] ?? "").trim() : "CJ대한통운";
+    const tno = String(row[cols.tno] ?? "").trim();
+    const seq = cols.seq >= 0 ? String(row[cols.seq] ?? "").trim() : "";
+    if (!tno) return null;   // 송장번호가 없는 줄은 등록할 게 없으므로 건너뜁니다
+
+    // 1순위: 이지어드민 관리번호가 정확히 일치 (가장 확실함)
+    let cands = [];
+    let how = "";
+    if (seq) {
+      cands = pool.filter(r => r.ezadminSeq && String(r.ezadminSeq).trim() === seq);
+      if (cands.length) how = "관리번호 일치";
+    }
+    // 2순위: 수령자 이름 (+ 연락처가 있으면 연락처로 더 좁힘) 일치
+    if (!cands.length && name) {
+      let c2 = pool.filter(r => _mText(r.receiver.name) === _mText(name));
+      if (phone && c2.length > 1) {
+        const c3 = c2.filter(r => _mPhone(r.receiver.phone) === _mPhone(phone));
+        if (c3.length) c2 = c3;
+      }
+      cands = c2;
+    }
+    // 그래도 여러 건이면 상품명으로 더 좁혀봅니다 (그래도 안 좁혀지면 사람이 골라야 함)
+    if (cands.length > 1 && item) {
+      const c4 = cands.filter(r =>
+        (r.products || []).some(p => p.name && (_mText(p.name).includes(_mText(item)) || _mText(item).includes(_mText(p.name))))
+        || (r.item && (_mText(r.item).includes(_mText(item)) || _mText(item).includes(_mText(r.item)))));
+      if (c4.length) cands = c4;
+    }
+    // 위에서 관리번호로 못 찾았고 이름 계열로 정확히 1건이 좁혀졌으면,
+    // 그 1건을 기준으로 연락처가 실제로 같은지 확인한 뒤에야 "일치" 라벨을 붙입니다
+    // (라벨과 실제 대조 결과가 어긋나 헷갈리는 일이 없도록 — 자동 체크 여부는 항상 warns로 판단합니다)
+    if (!how && cands.length === 1) {
+      const phoneOk = !phone || _mPhone(cands[0].receiver.phone) === _mPhone(phone);
+      how = phoneOk ? (phone ? "이름+연락처 일치" : "이름만 일치") : "이름만 일치(연락처 다름)";
+    } else if (!how && cands.length > 1) {
+      how = "이름 일치(여러 건)";
+    }
+
+    const match = cands.length === 1 ? cands[0] : null;
+    const warns = match ? computeMatchWarns(match, { name, phone, addr }) : [];
+    // 자동 체크는 "관리번호 일치" 또는 "이름+연락처 일치"이면서 대조 경고가 하나도 없을 때만
+    const confident = !!match && warns.length === 0 && (how === "관리번호 일치" || how === "이름+연락처 일치");
+    return { name, phone, addr, item, opt, carrier, tno, seq, candidates: cands, match, how, warns, checked: confident };
+  }).filter(Boolean);
+
+  if (!MATCH_ROWS.length) { alert("엑셀에서 송장번호가 있는 줄을 찾지 못했어요."); return; }
+  renderMatchTable();
+  document.getElementById("matchOverlay").style.display = "flex";
+}
+
+function matchRowHtml(m, i) {
+  const excelCell = `<div><b>${escHtml(m.name) || "-"}</b></div>
+    <div style="color:var(--ink-35);">${escHtml(m.phone) || "-"}</div>
+    <div style="color:var(--ink-35);font-size:11.5px;">${escHtml(m.addr) || "-"}</div>
+    <div style="font-size:11.5px;">${escHtml(m.item)}${m.opt ? " · " + escHtml(m.opt) : ""}</div>`;
+
+  const otherPool = DATA.filter(r => !trackText(r));
+  const pickOptions = (list) => `<option value="">-- 직접 선택 --</option>` +
+    list.map(c => `<option value="${escHtml(c.sr)}"${m.match && m.match.sr === c.sr ? " selected" : ""}>${escHtml(c.sr)} · ${escHtml(c.receiver.name || "")} · ${escHtml((c.receiver.address || "").slice(0, 18))}</option>`).join("");
+
+  let matchedCell;
+  if (m.candidates.length > 1 && !m.match) {
+    matchedCell = `<div style="color:var(--stamp-red);font-weight:700;font-size:12px;">⚠️ 후보 ${m.candidates.length}건 — 직접 골라주세요</div>
+      <select class="matchPick" data-i="${i}" style="margin-top:4px;">${pickOptions(m.candidates)}</select>`;
+  } else if (!m.match) {
+    matchedCell = `<div style="color:var(--stamp-red);font-weight:700;font-size:12px;">⚠️ 자동으로 못 찾았어요</div>
+      <select class="matchPick" data-i="${i}" style="margin-top:4px;">${pickOptions(otherPool)}</select>`;
+  } else {
+    matchedCell = `<div><b>${escHtml(m.match.sr)}</b> <span style="font-size:11px;color:var(--ink-35);">(${escHtml(m.how)})</span></div>
+      <div>${escHtml(m.match.receiver.name || "-")}</div>
+      <div style="color:var(--ink-35);">${escHtml(m.match.receiver.phone || "-")}</div>
+      <div style="color:var(--ink-35);font-size:11.5px;">${escHtml(m.match.receiver.address || "-")}</div>
+      <select class="matchPick" data-i="${i}" style="margin-top:4px;">${pickOptions(m.candidates.length > 1 ? m.candidates : otherPool)}</select>`;
+  }
+  const warnCell = m.match
+    ? (m.warns.length ? `<span style="color:var(--stamp-red);font-weight:700;">⚠️ ${m.warns.join("·")} 다름</span>` : `<span style="color:var(--stamp-green);font-weight:700;">✅ 일치</span>`)
+    : "-";
+  const canCheck = !!m.match;
+  const rowCls = !m.match ? "matchrow-warn" : (m.warns.length ? "matchrow-warn" : "matchrow-ok");
+  return `<tr class="${rowCls}">
+    <td><input type="checkbox" class="matchChk" data-i="${i}" ${canCheck ? "" : "disabled"} ${m.checked ? "checked" : ""}></td>
+    <td>${excelCell}</td>
+    <td>${matchedCell}</td>
+    <td>${warnCell}</td>
+    <td style="font-family:var(--mono);font-size:12px;white-space:nowrap;">${escHtml(m.carrier)}<br>${escHtml(m.tno)}</td>
+  </tr>`;
+}
+
+function renderMatchTable() {
+  const wrap = document.getElementById("matchTableWrap");
+  wrap.innerHTML = `<table class="matchtable"><thead><tr>
+      <th></th><th>엑셀 (수령자·연락처·주소·상품)</th><th>매칭된 요청서</th><th>대조</th><th>택배사·송장번호</th>
+    </tr></thead><tbody>${MATCH_ROWS.map((m, i) => matchRowHtml(m, i)).join("")}</tbody></table>`;
+  wrap.querySelectorAll(".matchChk").forEach(cb => cb.addEventListener("change", e => {
+    MATCH_ROWS[Number(e.target.dataset.i)].checked = e.target.checked;
+    updateMatchFooter();
+  }));
+  wrap.querySelectorAll(".matchPick").forEach(sel => sel.addEventListener("change", e => {
+    const i = Number(e.target.dataset.i);
+    const sr = e.target.value;
+    const r = sr ? DATA.find(x => x.sr === sr) : null;
+    const m = MATCH_ROWS[i];
+    m.match = r || null;
+    m.how = "수동 선택";
+    m.warns = r ? computeMatchWarns(r, m) : [];
+    m.checked = false;   // 수동으로 고른 건 반드시 사람이 다시 확인하고 체크해야 합니다
+    renderMatchTable();
+  }));
+  updateMatchFooter();
+}
+
+function updateMatchFooter() {
+  const total = MATCH_ROWS.length;
+  const checked = MATCH_ROWS.filter(m => m.checked).length;
+  const unresolved = MATCH_ROWS.filter(m => !m.match).length;
+  const info = document.getElementById("matchFooterInfo");
+  info.innerHTML = `전체 ${total}건 중 <b>${checked}건</b> 등록 예정` + (unresolved ? ` · <span style="color:var(--stamp-red);">미매칭 ${unresolved}건</span>` : "");
+  const btn = document.getElementById("matchApply");
+  btn.disabled = checked === 0;
+  btn.style.opacity = checked === 0 ? ".45" : "1";
+}
+
+async function applyInvoiceMatch() {
+  const targets = MATCH_ROWS.filter(m => m.checked && m.match);
+  if (!targets.length) return;
+  const btn = document.getElementById("matchApply");
+  btn.disabled = true;
+  let ok = 0; const failed = [];
+  for (const m of targets) {
+    btn.textContent = `등록 중... (${ok + failed.length + 1}/${targets.length})`;
+    try {
+      const res = await fetch(API_BASE + "/api/requests/" + encodeURIComponent(m.match.sr) + "/tracking", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trackings: [{ carrier: m.carrier, trackingNo: m.tno }] }),
+      });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      ok += 1;
+    } catch (e) { failed.push(m.match.sr); }
+  }
+  btn.textContent = "선택한 건 일괄 등록";
+  document.getElementById("matchOverlay").style.display = "none";
+  MATCH_ROWS = [];
+  await loadData();
+  if (failed.length) alert(`${ok}건 등록 완료.\n${failed.length}건은 실패했어요: ${failed.join(", ")}\n잠시 후 다시 시도해 주세요.`);
+  else toast(`<span>✅ 송장 ${ok}건 일괄 등록 완료 · 알림은 아직 안 감</span>`);
+}
+
 /* =====================================================================
    📦 송장 일괄 전송
    요청자가 엑셀 한 장으로 여러 주문건을 보냈을 때, 돌아가는 알림도 한 번으로.
@@ -1435,6 +1684,20 @@ document.addEventListener('click', e=>{
 });
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape') closeTrackSheet();
+});
+
+// ── 송장 엑셀 일괄 등록 이벤트 ──
+document.addEventListener('click', e=>{
+  if(e.target.closest('#invoiceMatchBtn')){ document.getElementById('invoiceMatchFile').click(); return; }
+  if(e.target.closest('#matchClose') || e.target.id==='matchOverlay'){
+    document.getElementById('matchOverlay').style.display='none'; MATCH_ROWS=[]; return;
+  }
+  if(e.target.closest('#matchApply')){ applyInvoiceMatch(); return; }
+});
+document.getElementById('invoiceMatchFile').addEventListener('change', async e=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';   // 같은 파일을 다시 골라도 change가 발생하도록
+  if(file) await openInvoiceMatch(file);
 });
 
 (function clock(){
