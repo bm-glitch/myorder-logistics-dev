@@ -532,9 +532,8 @@
   :root[data-theme="dark"] .pbadge.ok{background:#173327}
   :root[data-theme="dark"] .pbadge.unk{background:#3c3c46}
 
-  /* 완료건 보기 — 기간(날짜) 필터. 평소 작업 목록에선 숨겨뒀다가 완료건 볼 때만 켭니다. */
-  .daterangebar{display:none;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 0 0;}
-  .daterangebar.on{display:flex;}
+  /* 상세 검색 — 상태(대기/진행중/완료) + 기간(날짜) 필터. 항상 켜져 있습니다. */
+  .daterangebar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 0 0;}
   .daterangebar select, .daterangebar input[type="date"]{
     font-family:var(--sans);font-size:12.5px;padding:7px 8px;border:1px solid var(--rule-2);
     border-radius:7px;background:var(--card);color:var(--ink);
@@ -579,7 +578,15 @@
       style="width:50%;min-width:220px;font-size:13px;padding:8px 10px;border:1px solid var(--rule-2);border-radius:7px;background:var(--card);color:var(--ink);box-sizing:border-box;">
   </div>
   <div id="dateRangeBar" class="daterangebar">
-    <span style="font-size:12px;color:var(--ink-35);white-space:nowrap;">🗓 기간</span>
+    <span style="font-size:12px;color:var(--ink-35);white-space:nowrap;">🔎 상세 검색</span>
+    <span style="color:var(--ink-35);">상태</span>
+    <select id="statusFilterSel">
+      <option value="">전체</option>
+      <option value="대기">대기</option>
+      <option value="진행중">진행중</option>
+      <option value="완료">완료</option>
+    </select>
+    <span style="color:var(--ink-35);">기간</span>
     <select id="dateFieldSel">
       <option value="completedAt">완료일</option>
       <option value="want">희망일</option>
@@ -734,7 +741,9 @@ let TAB='day', SCOPE='team';
 let SHOW_DONE=false; // true면 '완료건 시트'(완료된 건만 모아 보기) 모드
 let SEARCH_TERM='';  // 요청번호·수령자·요청자·상품명 통합검색 (완료건 보기 포함 모든 화면에 적용)
 
-// 완료건 보기 전용 — 기간(날짜) 필터. 어떤 날짜에 뭐가 나갔는지 찾기 힘들다는 피드백으로 추가.
+// 상세 검색 — 상태(대기/진행중/완료) + 기간(날짜) 필터. 항상 켜져 있고, 일별/주간/월간·완료건 보기와 무관하게 적용됩니다.
+// 상태를 고르면(전체가 아니면) 그 상태만 정확히 보여주고, 기간은 상태와 상관없이 함께 좁혀 줍니다.
+let STATUS_FILTER='';
 let DATE_FIELD='completedAt', DATE_FROM='', DATE_TO='';
 /** r[DATE_FIELD] 값("YYYY-MM-DD" 또는 "YYYY-MM-DD HH:mm")에서 날짜만 뽑아 범위를 비교합니다. */
 function matchesDateRange(r){
@@ -785,11 +794,16 @@ function view(){
   return DATA.filter(r=>{
     if(r.scope!==SCOPE) return false;
     if(!matchesSearch(r)) return false;
+    if(!matchesDateRange(r)) return false;   // 기간은 상태·화면 모드와 상관없이 항상 함께 적용
     const st = state.get(r.sr);
+    if(STATUS_FILTER){
+      // 상세 검색에서 상태를 직접 골랐으면, 일별/주간/월간·완료건 보기 모드와 무관하게 그 상태만 보여줍니다.
+      return st.status===STATUS_FILTER;
+    }
     if(SHOW_DONE){
       // 완료건 시트: 완료 상태인 건만 모아서 보여줍니다(전송 여부 무관).
       // 완료 후에도 여기서 송장 기입 등 사후 작업을 할 수 있어요.
-      return st.status==='완료' && matchesDateRange(r);
+      return st.status==='완료';
     }
     if(bucket(r)!==TAB) return false;
     if(st.status==='완료' && st.sent) return false;   // 평상시 목록: 완료+전송완료는 숨김
@@ -976,13 +990,12 @@ function row(r){
 let _pageSig='';
 function render(){
   renderTabs();
-  document.getElementById('dateRangeBar').classList.toggle('on', SHOW_DONE);
 
   const rs=view();
   rs.sort((a,b)=>dday(a)-dday(b) || a.sr.localeCompare(b.sr));
 
   // 필터가 바뀌면 자동으로 1페이지로 돌아갑니다.
-  const sig=[SCOPE,SHOW_DONE,TAB,SEARCH_TERM,DATE_FIELD,DATE_FROM,DATE_TO,PAGE_SIZE].join('§');
+  const sig=[SCOPE,SHOW_DONE,TAB,STATUS_FILTER,SEARCH_TERM,DATE_FIELD,DATE_FROM,DATE_TO,PAGE_SIZE].join('§');
   if(sig!==_pageSig){ _pageSig=sig; PAGE=1; }
   const totalPages=Math.max(1, Math.ceil(rs.length/PAGE_SIZE));
   if(PAGE>totalPages) PAGE=totalPages;
@@ -1792,7 +1805,11 @@ document.getElementById('invoiceMatchFile').addEventListener('change', async e=>
   if(file) await openInvoiceMatch(file);
 });
 
-// ── 완료건 기간(날짜) 필터 ──
+// ── 상세 검색: 상태 + 기간(날짜) ── 항상 켜져 있고, 일별/주간/월간·완료건 보기와 별개로 적용됩니다.
+document.getElementById('statusFilterSel').addEventListener('change', e=>{
+  STATUS_FILTER = e.target.value;
+  render();
+});
 document.getElementById('dateApplyBtn').addEventListener('click', ()=>{
   DATE_FIELD = document.getElementById('dateFieldSel').value;
   DATE_FROM = document.getElementById('dateFromInput').value;
@@ -1800,9 +1817,10 @@ document.getElementById('dateApplyBtn').addEventListener('click', ()=>{
   render();
 });
 document.getElementById('dateClearBtn').addEventListener('click', ()=>{
+  document.getElementById('statusFilterSel').value = '';
   document.getElementById('dateFromInput').value = '';
   document.getElementById('dateToInput').value = '';
-  DATE_FROM = ''; DATE_TO = '';
+  STATUS_FILTER = ''; DATE_FROM = ''; DATE_TO = '';
   render();
 });
 
