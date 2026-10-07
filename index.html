@@ -1574,15 +1574,28 @@ async function bulkSetStatus(status){
 }
 
 /** 고른 요청들을 한 번에 취소 처리합니다. 되돌리기 어려운 작업이라 꼭 한 번 더 확인합니다. */
+/** 이 기기에서 작업하는 사람 이름 — 한 번 물어보고 기억해둬서, 매번 다시 안 물어봐요.
+ *  삭제·완료 같은 되돌리기 어려운 작업을 누가 했는지 변경 이력에 남기는 용도입니다. */
+function myName(){
+  let n = '';
+  try{ n = localStorage.getItem('myorder_myname') || ''; }catch(e){}
+  if(!n){
+    n = (prompt('처리자 이름을 입력해 주세요 (이 기기에 저장돼서 다음부터는 안 물어봐요)') || '').trim();
+    if(n){ try{ localStorage.setItem('myorder_myname', n); }catch(e){} }
+  }
+  return n;
+}
+
 async function bulkCancel(){
   const ids = [...BULK_SEL];
   if(!ids.length) return;
   if(!confirm(`선택한 ${ids.length}건을 취소 처리할까요?\n취소된 건은 '취소 내역'으로 옮겨가고, 목록에는 더 이상 안 보여요.`)) return;
+  const actor = myName();
   const reason = prompt('취소 사유를 적어 주세요 (안 적어도 진행돼요)') || '';
   let ok=0, fail=0;
   for(const sr of ids){
     try{
-      const qs = "?changeReason=" + encodeURIComponent(reason);
+      const qs = "?changedBy=" + encodeURIComponent(actor) + "&changeReason=" + encodeURIComponent(reason);
       const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/cancel"+qs, {method:"PATCH"});
       if(!res.ok) throw new Error();
       ok++;
