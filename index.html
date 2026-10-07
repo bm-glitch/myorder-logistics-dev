@@ -687,6 +687,8 @@
     <span id="bulkWho" style="font-size:12px;color:var(--ink-35);flex:1;min-width:80px;"></span>
     <button type="button" id="bulkAll" style="appearance:none;border:1px solid var(--stamp-blue);background:var(--card);color:var(--stamp-blue);border-radius:7px;padding:8px 12px;cursor:pointer;font-size:12.5px;font-weight:700;">전체 선택</button>
     <button type="button" id="bulkClear" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:7px;padding:8px 12px;cursor:pointer;font-size:12.5px;">선택 해제</button>
+    <button type="button" id="bulkDone" disabled style="appearance:none;border:1px solid #16794d;background:#16794d;color:#fff;border-radius:7px;padding:8px 12px;cursor:pointer;font-size:12.5px;font-weight:700;opacity:.45;">✅ 선택 완료 처리</button>
+    <button type="button" id="bulkCancel" disabled style="appearance:none;border:1px solid var(--stamp-red);background:var(--card);color:var(--stamp-red);border-radius:7px;padding:8px 12px;cursor:pointer;font-size:12.5px;font-weight:700;opacity:.45;">🗑 선택 취소 처리</button>
     <button type="button" id="bulkSend" disabled style="appearance:none;border:1px solid var(--stamp-blue);background:var(--stamp-blue);color:#fff;border-radius:7px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700;opacity:.45;">📨 엑셀+알림 한 번에 보내기</button>
   </div>
 </div>
@@ -946,12 +948,12 @@ function row(r){
                '완료':['st-done','완료'],'보류':['st-hold','보류']};
   const [sc,sl]=stMap[st.status];
 
-  return `<article class="${cls}" data-sr="${r.sr}"${(BULK && BULK_SEL.has(r.sr)) ? ' style="outline:2px solid var(--stamp-blue);outline-offset:-1px;"' : ''}>
+  return `<article class="${cls}" data-sr="${r.sr}"${BULK_SEL.has(r.sr) ? ' style="outline:2px solid var(--stamp-blue);outline-offset:-1px;"' : ''}>
     <div class="dday"><span class="num">${num}</span><span class="unit">${unit}</span></div>
     <div class="body">
       <div class="line1">
-        ${BULK ? `<label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--stamp-blue);cursor:pointer;margin-right:2px;">
-          <input type="checkbox" data-act="pick" data-sr="${r.sr}" ${BULK_SEL.has(r.sr) ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--stamp-blue);cursor:pointer;">선택</label>` : ''}
+        <label style="display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--stamp-blue);cursor:pointer;margin-right:2px;">
+          <input type="checkbox" data-act="pick" data-sr="${r.sr}" ${BULK_SEL.has(r.sr) ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--stamp-blue);cursor:pointer;">선택</label>
         <span class="sr">${r.sr}</span>
         <span class="team">${r.team}</span>
         <span class="who">${r.by}</span>
@@ -1088,6 +1090,10 @@ document.addEventListener('click',e=>{
   if(bc){ BULK_SEL.clear(); render(); updateBulkBar(); return; }
   const bs=e.target.closest('#bulkSend');
   if(bs){ if(!bs.disabled) sendBulk(); return; }
+  const bd=e.target.closest('#bulkDone');
+  if(bd){ if(!bd.disabled) bulkSetStatus('완료'); return; }
+  const bx=e.target.closest('#bulkCancel');
+  if(bx){ if(!bx.disabled) bulkCancel(); return; }
 
   const btn=e.target.closest('[data-act]');
   if(!btn) return;
@@ -1546,6 +1552,47 @@ function previewLines(r){
   if(!nos.length) return [`${dd}_${who}_송장번호 없음`];
   return nos.map(n=>`${dd}_${who}_${n}`);
 }
+/** 고른 요청들을 한 번에 '완료'로 바꿉니다. (하나씩 ✔ 누르던 걸 한 번에) */
+async function bulkSetStatus(status){
+  const ids = [...BULK_SEL];
+  if(!ids.length) return;
+  if(!confirm(`선택한 ${ids.length}건을 '${status}'(으)로 바꿀까요?`)) return;
+  let ok=0, fail=0;
+  for(const sr of ids){
+    try{
+      const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/status", {
+        method:"PATCH", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({status})
+      });
+      if(!res.ok) throw new Error();
+      ok++;
+    }catch(e){ fail++; }
+  }
+  BULK_SEL.clear();
+  await loadData();
+  toast(fail ? `${ok}건 완료 처리, ${fail}건 실패했어요` : `<span><b>${ok}건</b>을 완료 처리했어요</span>`);
+}
+
+/** 고른 요청들을 한 번에 취소 처리합니다. 되돌리기 어려운 작업이라 꼭 한 번 더 확인합니다. */
+async function bulkCancel(){
+  const ids = [...BULK_SEL];
+  if(!ids.length) return;
+  if(!confirm(`선택한 ${ids.length}건을 취소 처리할까요?\n취소된 건은 '취소 내역'으로 옮겨가고, 목록에는 더 이상 안 보여요.`)) return;
+  const reason = prompt('취소 사유를 적어 주세요 (안 적어도 진행돼요)') || '';
+  let ok=0, fail=0;
+  for(const sr of ids){
+    try{
+      const qs = "?changeReason=" + encodeURIComponent(reason);
+      const res = await fetch(API_BASE+"/api/requests/"+encodeURIComponent(sr)+"/cancel"+qs, {method:"PATCH"});
+      if(!res.ok) throw new Error();
+      ok++;
+    }catch(e){ fail++; }
+  }
+  BULK_SEL.clear();
+  await loadData();
+  toast(fail ? `${ok}건 취소 처리, ${fail}건 실패했어요` : `<span><b>${ok}건</b>을 취소 처리했어요</span>`);
+}
+
 function setBulk(on){
   BULK = on;
   if(!on) BULK_SEL.clear();
@@ -1568,13 +1615,17 @@ function updateBulkBar(){
   const cnt = document.getElementById('bulkCount');
   const who = document.getElementById('bulkWho');
   const send = document.getElementById('bulkSend');
+  // 체크박스는 이제 항상 떠 있어요 — 뭔가 하나라도 고르면 아래 바가 자동으로 나타납니다.
+  // ('📦 송장 일괄 전송' 버튼을 눌러 BULK 모드를 켠 경우도 그대로 보여요.)
+  const bar = document.getElementById('bulkBar');
+  if(bar) bar.style.display = (BULK || n>0) ? '' : 'none';
   if(cnt) cnt.textContent = n + '건 선택';
   const rows = [...BULK_SEL].map(sr=>DATA.find(x=>x.sr===sr)).filter(Boolean);
   const people = [...new Set(rows.map(r=>r.by).filter(Boolean))];
   const noTrack = rows.filter(r=>!trackText(r)).length;
   if(who){
-    who.innerHTML = !n ? '보낼 요청건을 골라 주세요 (일별·주간·월간 탭을 옮겨가며 골라도 선택은 유지돼요)'
-      : `${people.join(', ')}${people.length>1?` (${people.length}명에게 나눠 보냄)`:''}`
+    who.innerHTML = !n ? '요청을 골라 주세요 (일별·주간·월간 탭을 옮겨가며 골라도 선택은 유지돼요)'
+      : `${people.join(', ')}${people.length>1?` (${people.length}명)`:''}`
         + (noTrack ? ` · <span style="color:var(--stamp-red);font-weight:700;">송장 없는 건 ${noTrack}</span>` : '');
   }
   if(send){
@@ -1582,6 +1633,13 @@ function updateBulkBar(){
     send.style.opacity = n ? '1' : '.45';
     send.style.cursor = n ? 'pointer' : 'not-allowed';
   }
+  ['bulkDone','bulkCancel'].forEach(id=>{
+    const b = document.getElementById(id);
+    if(!b) return;
+    b.disabled = !n;
+    b.style.opacity = n ? '1' : '.45';
+    b.style.cursor = n ? 'pointer' : 'not-allowed';
+  });
 }
 
 /** 고른 요청건들을 유상/무상 시트로 나눠 엑셀(Workbook)을 만듭니다. */
