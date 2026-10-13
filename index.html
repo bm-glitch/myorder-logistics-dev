@@ -1313,9 +1313,11 @@ const _mAddr = (s) => String(s == null ? "" : s).replace(/\s+/g, "")
   .replace(/[()（）,.\-]/g, "").toLowerCase();
 
 const INV_COLS = {
-  name:    ["수령자", "수령인", "받는분", "받는사람", "수취인", "고객명"],
-  phone:   ["수령자휴대폰", "수령자연락처", "수령자전화", "휴대폰", "연락처", "전화번호", "수취인연락처"],
-  addr:    ["수령자주소", "주소", "배송지"],
+  // "배송_이름"처럼 밑줄로 이어진 이름은 _mText가 밑줄을 지워서 "배송이름"이 되므로 그 형태로 추가합니다.
+  // (이지어드민 발송완료 엑셀 외에, 올리브영 크리에이터 협찬 플랫폼 등 다른 양식도 이렇게 올라올 수 있어요)
+  name:    ["수령자", "수령인", "받는분", "받는사람", "수취인", "고객명", "배송이름"],
+  phone:   ["수령자휴대폰", "수령자연락처", "수령자전화", "휴대폰", "연락처", "전화번호", "수취인연락처", "배송연락처"],
+  addr:    ["수령자주소", "주소", "배송지", "배송주소"],
   item:    ["상품명", "제품명", "품목명"],
   opt:     ["옵션", "옵션명", "옵션값"],
   carrier: ["택배사"],
@@ -1339,11 +1341,109 @@ function computeMatchWarns(match, m) {
   return warns;
 }
 
+/* =====================================================================
+   🔒 비밀번호로 잠긴 엑셀 열기 — 택배사/판매처가 보안을 위해 암호를 걸어 보내는
+   송장 엑셀은 브라우저(xlsx.js)가 그대로 못 읽습니다. 암호 걸린 파일이면 화면에서
+   비밀번호를 입력받아 서버(Apache POI, logistics-backend)로 복호화한 뒤 다시 읽습니다.
+   (대시보드 엑셀 작업실과 동일한 /api/excel/decrypt 를 그대로 재사용합니다)
+   ===================================================================== */
+function isEncryptedXlsxBuf(buf) {
+  const b = new Uint8Array(buf);
+  return b.length > 8 && b[0] === 0xD0 && b[1] === 0xCF && b[2] === 0x11 && b[3] === 0xE0 &&
+         b[4] === 0xA1 && b[5] === 0xB1 && b[6] === 0x1A && b[7] === 0xE1;
+}
+async function decryptXlsxBuf(buf, password) {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  const res = await fetch(API_BASE + "/api/excel/decrypt", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileBase64: btoa(bin), password }),
+  });
+  if (!res.ok) throw new Error("서버 응답 " + res.status);
+  const out = await res.json();
+  if (!out.ok) throw new Error(out.message || "비밀번호가 올바르지 않아요.");
+  const outBin = atob(out.fileBase64);
+  const arr = new Uint8Array(outBin.length);
+  for (let i = 0; i < outBin.length; i++) arr[i] = outBin.charCodeAt(i);
+  return arr.buffer;
+}
+const LAST_EXCEL_PASSWORD = { value: "" };
+function askExcelPassword(fileName, prefill, errMsg) {
+  return new Promise((resolve) => {
+    let ov = document.getElementById("excelPwModal");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "excelPwModal";
+      ov.style.cssText = "position:fixed;inset:0;background:rgba(22,24,27,.55);display:flex;align-items:center;justify-content:center;z-index:99999;padding:16px;";
+      ov.innerHTML = `
+        <div style="background:var(--card);border-radius:14px;max-width:380px;width:100%;padding:20px;box-shadow:0 16px 50px rgba(0,0,0,.35);box-sizing:border-box;">
+          <div style="font-size:15.5px;font-weight:700;margin-bottom:4px;color:var(--ink);">🔒 비밀번호로 잠긴 엑셀 파일</div>
+          <div id="pwFileName" style="font-size:12.5px;color:var(--ink-60);margin-bottom:14px;line-height:1.5;word-break:break-all;"></div>
+          <label style="font-size:12px;font-weight:600;color:var(--ink-60);">비밀번호</label>
+          <input id="pwInput" type="text" placeholder="예: 1234" style="width:100%;margin:4px 0 4px;padding:9px 10px;border:1px solid var(--rule-2);border-radius:8px;font-size:14px;background:var(--card);color:var(--ink);box-sizing:border-box;">
+          <div id="pwErr" style="font-size:12px;color:var(--stamp-red);min-height:16px;margin:4px 0 8px;"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button id="pwCancel" type="button" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:7px;padding:9px 14px;cursor:pointer;font-size:13px;">취소</button>
+            <button id="pwOk" type="button" style="appearance:none;border:0;background:var(--stamp-blue);color:#fff;border-radius:7px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:700;">확인</button>
+          </div>
+        </div>`;
+      document.body.appendChild(ov);
+    }
+    const nameEl = ov.querySelector("#pwFileName");
+    const input = ov.querySelector("#pwInput");
+    const err = ov.querySelector("#pwErr");
+    nameEl.textContent = fileName + " — 비밀번호로 보호된 파일이에요. 비밀번호를 입력해 주세요.";
+    input.value = prefill || "";
+    err.textContent = errMsg || "";
+    ov.style.display = "flex";
+    setTimeout(() => { input.focus(); input.select(); }, 30);
+
+    const cleanup = () => {
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      ov.removeEventListener("keydown", onKey);
+    };
+    const close = (result) => { ov.style.display = "none"; cleanup(); resolve(result); };
+    const onOk = () => {
+      const v = input.value.trim();
+      if (!v) { err.textContent = "비밀번호를 입력해 주세요."; input.focus(); return; }
+      close(v);
+    };
+    const onCancel = () => close(null);
+    const onKey = (e) => {
+      if (e.key === "Enter") { e.preventDefault(); onOk(); }
+      else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+    };
+    const okBtn = ov.querySelector("#pwOk");
+    const cancelBtn = ov.querySelector("#pwCancel");
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    ov.addEventListener("keydown", onKey);
+  });
+}
+async function readWorkbookOrPrompt(buf, fileName) {
+  if (!isEncryptedXlsxBuf(buf)) return XLSX.read(new Uint8Array(buf), { type: "array" });
+  let pwd = LAST_EXCEL_PASSWORD.value;
+  let err = "";
+  for (;;) {
+    pwd = await askExcelPassword(fileName, pwd, err);
+    if (pwd == null) throw new Error(fileName + ": 비밀번호를 입력하지 않아 열 수 없어요.");
+    try {
+      const decrypted = await decryptXlsxBuf(buf, pwd);
+      LAST_EXCEL_PASSWORD.value = pwd;
+      return XLSX.read(decrypted, { type: "array" });
+    } catch (e) {
+      err = e.message || "비밀번호가 올바르지 않아요. 다시 입력해 주세요.";
+    }
+  }
+}
+
 async function openInvoiceMatch(file) {
   let aoa;
   try {
     const buf = await file.arrayBuffer();
-    const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
+    const wb = await readWorkbookOrPrompt(buf, file.name);
     aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
   } catch (e) { alert("파일을 읽지 못했어요: " + (e.message || "")); return; }
   if (!aoa || !aoa.length) { alert("빈 파일이에요."); return; }
