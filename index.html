@@ -416,9 +416,17 @@
   table.matchtable tr.matchrow-warn td{background:#fff6f2;}
   table.matchtable tr.matchrow-ok td{background:#f3fbf6;}
   table.matchtable select.matchPick{width:100%;font-size:12px;padding:6px;border:1px solid var(--rule-2);border-radius:6px;background:#fff;color:var(--ink);box-sizing:border-box;}
+  table.matchtable tr.matchrow-done td{background:var(--paper);opacity:.72;}
+  .matchPickInput{width:100%;box-sizing:border-box;font-size:12px;padding:6px 8px;border:1px solid var(--rule-2);border-radius:6px;background:#fff;color:var(--ink);}
+  .matchPickList{display:none;position:absolute;z-index:120;left:0;right:0;top:100%;margin-top:2px;background:var(--card);border:1px solid var(--rule-2);border-radius:8px;max-height:220px;overflow-y:auto;box-shadow:0 10px 28px rgba(0,0,0,.2);}
+  .matchPickItem{padding:7px 9px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--rule-2);}
+  .matchPickItem:last-child{border-bottom:0;}
+  .matchPickItem:hover{background:var(--paper);}
   :root[data-theme="dark"] table.matchtable tr.matchrow-warn td{background:#2a1e1a;}
   :root[data-theme="dark"] table.matchtable tr.matchrow-ok td{background:#182620;}
+  :root[data-theme="dark"] table.matchtable tr.matchrow-done td{background:#1b1b20;opacity:.72;}
   :root[data-theme="dark"] table.matchtable select.matchPick{background:#202028;}
+  :root[data-theme="dark"] .matchPickInput{background:#202028;}
 
   /* 행에 표시되는 송장 정보 + 알림 버튼 */
   .trackinfo{
@@ -1457,8 +1465,11 @@ async function openInvoiceMatch(file) {
   }
   const body = aoa.slice(1).filter(row => row.some(c => String(c || "").trim()));
 
-  // 매칭 대상 풀 — 아직 송장이 등록되지 않은 요청서만 (이미 등록된 건 실수로 덮어쓰지 않기 위해 제외)
-  const pool = DATA.filter(r => !trackText(r));
+  // 매칭 대상 풀 — 아직 송장이 등록되지 않았고, 아직 끝나지 않은 요청서만.
+  // "완료"는 송장번호가 비어 있어도 후보에서 뺍니다 — 같은 고객이 지난 캠페인에
+  // 여러 번 참여하면 그 완료건들이 전부 "이름 일치 후보"로 끼어들어서, 실제로는
+  // 1건으로 확실히 좁혀지는데도 사람이 매번 골라야 하는 번거로움이 있었어요.
+  const pool = DATA.filter(r => !trackText(r) && r.status !== "완료");
 
   MATCH_ROWS = body.map(row => {
     const name = String(row[cols.name] ?? "").trim();
@@ -1470,6 +1481,15 @@ async function openInvoiceMatch(file) {
     const tno = String(row[cols.tno] ?? "").trim();
     const seq = cols.seq >= 0 ? String(row[cols.seq] ?? "").trim() : "";
     if (!tno) return null;   // 송장번호가 없는 줄은 등록할 게 없으므로 건너뜁니다
+
+    // 이 송장번호가 이미 어떤 요청서에 등록돼 있으면(물류 대장이 이지어드민 관리번호로 5분마다
+    // 자동 확인해서 미리 채워 넣는 경우가 많아요) — 더 찾아볼 것도 없이 "이미 끝난 줄"입니다.
+    // 이걸 "자동으로 못 찾았어요"로 보여주면 실제로는 다 된 걸 실패로 오해하게 되니 따로 표시합니다.
+    const already = DATA.find(r => (r.trackingNo || "").trim() && (r.trackingNo || "").trim() === tno);
+    if (already) {
+      return { name, phone, addr, item, opt, carrier, tno, seq, candidates: [], match: null,
+               how: "이미 등록됨", warns: [], checked: false, alreadyDone: true, alreadyDoneSr: already.sr };
+    }
 
     // 1순위: 이지어드민 관리번호가 정확히 일치 (가장 확실함)
     let cands = [];
@@ -1508,12 +1528,27 @@ async function openInvoiceMatch(file) {
     const warns = match ? computeMatchWarns(match, { name, phone, addr }) : [];
     // 자동 체크는 "관리번호 일치" 또는 "이름+연락처 일치"이면서 대조 경고가 하나도 없을 때만
     const confident = !!match && warns.length === 0 && (how === "관리번호 일치" || how === "이름+연락처 일치");
-    return { name, phone, addr, item, opt, carrier, tno, seq, candidates: cands, match, how, warns, checked: confident };
+    return { name, phone, addr, item, opt, carrier, tno, seq, candidates: cands, match, how, warns, checked: confident, alreadyDone: false };
   }).filter(Boolean);
 
   if (!MATCH_ROWS.length) { alert("엑셀에서 송장번호가 있는 줄을 찾지 못했어요."); return; }
   renderMatchTable();
   document.getElementById("matchOverlay").style.display = "flex";
+}
+
+// 행(i)별로 "직접 선택" 검색창이 고를 수 있는 후보 목록을 들고 있습니다.
+// (<select>를 길게 스크롤하던 걸 타이핑 검색으로 바꾸면서, 옵션 객체를 DOM 대신 여기 둡니다)
+let MATCH_PICK_OPTIONS = {};
+
+/** 이름·연락처·요청번호·주소로 타이핑해서 찾는 검색창 (긴 드롭다운 스크롤 대신) */
+function matchPickHtml(options, selected, i) {
+  MATCH_PICK_OPTIONS[i] = options;
+  const label = selected ? `${selected.sr} · ${selected.receiver.name || ""} · ${(selected.receiver.address || "").slice(0, 18)}` : "";
+  return `<div class="matchPickWrap" style="position:relative;margin-top:4px;">
+    <input type="text" class="matchPickInput" data-i="${i}" autocomplete="off"
+      placeholder="이름·연락처·요청번호로 검색 (${options.length}건)" value="${escHtml(label)}">
+    <div class="matchPickList" data-i="${i}"></div>
+  </div>`;
 }
 
 function matchRowHtml(m, i) {
@@ -1522,29 +1557,30 @@ function matchRowHtml(m, i) {
     <div style="color:var(--ink-35);font-size:11.5px;">${escHtml(m.addr) || "-"}</div>
     <div style="font-size:11.5px;">${escHtml(m.item)}${m.opt ? " · " + escHtml(m.opt) : ""}</div>`;
 
-  const otherPool = DATA.filter(r => !trackText(r));
-  const pickOptions = (list) => `<option value="">-- 직접 선택 --</option>` +
-    list.map(c => `<option value="${escHtml(c.sr)}"${m.match && m.match.sr === c.sr ? " selected" : ""}>${escHtml(c.sr)} · ${escHtml(c.receiver.name || "")} · ${escHtml((c.receiver.address || "").slice(0, 18))}</option>`).join("");
+  const otherPool = DATA.filter(r => !trackText(r) && r.status !== "완료");
 
   let matchedCell;
-  if (m.candidates.length > 1 && !m.match) {
+  if (m.alreadyDone) {
+    matchedCell = `<div style="color:var(--ink-35);font-size:12px;">✅ 이미 등록 완료됨 (자동)</div>
+      <div style="font-size:11px;color:var(--ink-35);">${escHtml(m.alreadyDoneSr)} — 신경 쓰지 않으셔도 돼요</div>`;
+  } else if (m.candidates.length > 1 && !m.match) {
     matchedCell = `<div style="color:var(--stamp-red);font-weight:700;font-size:12px;">⚠️ 후보 ${m.candidates.length}건 — 직접 골라주세요</div>
-      <select class="matchPick" data-i="${i}" style="margin-top:4px;">${pickOptions(m.candidates)}</select>`;
+      ${matchPickHtml(m.candidates, m.match, i)}`;
   } else if (!m.match) {
     matchedCell = `<div style="color:var(--stamp-red);font-weight:700;font-size:12px;">⚠️ 자동으로 못 찾았어요</div>
-      <select class="matchPick" data-i="${i}" style="margin-top:4px;">${pickOptions(otherPool)}</select>`;
+      ${matchPickHtml(otherPool, m.match, i)}`;
   } else {
     matchedCell = `<div><b>${escHtml(m.match.sr)}</b> <span style="font-size:11px;color:var(--ink-35);">(${escHtml(m.how)})</span></div>
       <div>${escHtml(m.match.receiver.name || "-")}</div>
       <div style="color:var(--ink-35);">${escHtml(m.match.receiver.phone || "-")}</div>
       <div style="color:var(--ink-35);font-size:11.5px;">${escHtml(m.match.receiver.address || "-")}</div>
-      <select class="matchPick" data-i="${i}" style="margin-top:4px;">${pickOptions(m.candidates.length > 1 ? m.candidates : otherPool)}</select>`;
+      ${matchPickHtml(m.candidates.length > 1 ? m.candidates : otherPool, m.match, i)}`;
   }
-  const warnCell = m.match
+  const warnCell = m.alreadyDone ? "-" : (m.match
     ? (m.warns.length ? `<span style="color:var(--stamp-red);font-weight:700;">⚠️ ${m.warns.join("·")} 다름</span>` : `<span style="color:var(--stamp-green);font-weight:700;">✅ 일치</span>`)
-    : "-";
+    : "-");
   const canCheck = !!m.match;
-  const rowCls = !m.match ? "matchrow-warn" : (m.warns.length ? "matchrow-warn" : "matchrow-ok");
+  const rowCls = m.alreadyDone ? "matchrow-done" : (!m.match ? "matchrow-warn" : (m.warns.length ? "matchrow-warn" : "matchrow-ok"));
   return `<tr class="${rowCls}">
     <td><input type="checkbox" class="matchChk" data-i="${i}" ${canCheck ? "" : "disabled"} ${m.checked ? "checked" : ""}></td>
     <td>${excelCell}</td>
@@ -1554,7 +1590,25 @@ function matchRowHtml(m, i) {
   </tr>`;
 }
 
+function matchPickRenderList(i, query) {
+  const wrap = document.getElementById("matchTableWrap");
+  const listEl = wrap.querySelector(`.matchPickList[data-i="${i}"]`);
+  if (!listEl) return;
+  const opts = MATCH_PICK_OPTIONS[i] || [];
+  const q = (query || "").trim().toLowerCase();
+  const filtered = q
+    ? opts.filter(o => `${o.sr} ${o.receiver.name || ""} ${o.receiver.phone || ""} ${o.receiver.address || ""}`.toLowerCase().includes(q))
+    : opts;
+  listEl.innerHTML = filtered.slice(0, 80).map(o => `
+    <div class="matchPickItem" data-i="${i}" data-sr="${escHtml(o.sr)}">
+      <b>${escHtml(o.sr)}</b> · ${escHtml(o.receiver.name || "")} · <span style="color:var(--ink-35);">${escHtml(o.receiver.phone || "")}</span>
+      <div style="color:var(--ink-35);font-size:11px;">${escHtml((o.receiver.address || "").slice(0, 36))}</div>
+    </div>`).join("") || `<div style="padding:9px;color:var(--ink-35);font-size:12px;">검색 결과가 없어요.</div>`;
+  listEl.style.display = "block";
+}
+
 function renderMatchTable() {
+  MATCH_PICK_OPTIONS = {};
   const wrap = document.getElementById("matchTableWrap");
   wrap.innerHTML = `<table class="matchtable"><thead><tr>
       <th></th><th>엑셀 (수령자·연락처·주소·상품)</th><th>매칭된 요청서</th><th>대조</th><th>택배사·송장번호</th>
@@ -1563,9 +1617,7 @@ function renderMatchTable() {
     MATCH_ROWS[Number(e.target.dataset.i)].checked = e.target.checked;
     updateMatchFooter();
   }));
-  wrap.querySelectorAll(".matchPick").forEach(sel => sel.addEventListener("change", e => {
-    const i = Number(e.target.dataset.i);
-    const sr = e.target.value;
+  const pickMatch = (i, sr) => {
     const r = sr ? DATA.find(x => x.sr === sr) : null;
     const m = MATCH_ROWS[i];
     m.match = r || null;
@@ -1573,16 +1625,37 @@ function renderMatchTable() {
     m.warns = r ? computeMatchWarns(r, m) : [];
     m.checked = false;   // 수동으로 고른 건 반드시 사람이 다시 확인하고 체크해야 합니다
     renderMatchTable();
-  }));
+  };
+  wrap.querySelectorAll(".matchPickInput").forEach(inp => {
+    const i = Number(inp.dataset.i);
+    inp.addEventListener("focus", () => matchPickRenderList(i, ""));
+    inp.addEventListener("input", () => matchPickRenderList(i, inp.value));
+    // blur가 클릭보다 먼저 발생하므로, 목록 클릭(mousedown)이 끝난 뒤에 닫습니다.
+    inp.addEventListener("blur", () => setTimeout(() => {
+      const listEl = wrap.querySelector(`.matchPickList[data-i="${i}"]`);
+      if (listEl) listEl.style.display = "none";
+    }, 150));
+  });
+  wrap.querySelectorAll(".matchPickList").forEach(listEl => {
+    listEl.addEventListener("mousedown", (e) => {
+      const item = e.target.closest(".matchPickItem");
+      if (!item) return;
+      e.preventDefault();   // input blur보다 먼저 선택을 확정합니다
+      pickMatch(Number(item.dataset.i), item.dataset.sr);
+    });
+  });
   updateMatchFooter();
 }
 
 function updateMatchFooter() {
   const total = MATCH_ROWS.length;
   const checked = MATCH_ROWS.filter(m => m.checked).length;
-  const unresolved = MATCH_ROWS.filter(m => !m.match).length;
+  const alreadyDone = MATCH_ROWS.filter(m => m.alreadyDone).length;
+  const unresolved = MATCH_ROWS.filter(m => !m.match && !m.alreadyDone).length;
   const info = document.getElementById("matchFooterInfo");
-  info.innerHTML = `전체 ${total}건 중 <b>${checked}건</b> 등록 예정` + (unresolved ? ` · <span style="color:var(--stamp-red);">미매칭 ${unresolved}건</span>` : "");
+  info.innerHTML = `전체 ${total}건 중 <b>${checked}건</b> 등록 예정`
+    + (alreadyDone ? ` · 이미 등록됨 ${alreadyDone}건` : "")
+    + (unresolved ? ` · <span style="color:var(--stamp-red);">미매칭 ${unresolved}건</span>` : "");
   const btn = document.getElementById("matchApply");
   btn.disabled = checked === 0;
   btn.style.opacity = checked === 0 ? ".45" : "1";
