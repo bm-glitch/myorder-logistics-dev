@@ -1587,7 +1587,10 @@ function matchRowHtml(m, i) {
       ${matchPickHtml(m.candidates.length > 1 ? m.candidates : otherPool, m.match, i)}`;
   }
   const warnCell = m.alreadyDone ? "-" : (m.match
-    ? (m.warns.length ? `<span style="color:var(--stamp-red);font-weight:700;">⚠️ ${m.warns.join("·")} 다름</span>` : `<span style="color:var(--stamp-green);font-weight:700;">✅ 일치</span>`)
+    ? (m.warns.length
+        ? `<span style="color:var(--stamp-red);font-weight:700;">⚠️ ${m.warns.join("·")} 다름</span><br>
+           <button type="button" class="receiverFixBtn" data-i="${i}" style="appearance:none;border:1px solid var(--stamp-blue);background:var(--card);color:var(--stamp-blue);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:11.5px;margin-top:3px;">✏️ 수정</button>`
+        : `<span style="color:var(--stamp-green);font-weight:700;">✅ 일치</span>`)
     : "-");
   const canCheck = !!m.match;
   const rowCls = m.alreadyDone ? "matchrow-done" : (!m.match ? "matchrow-warn" : (m.warns.length ? "matchrow-warn" : "matchrow-ok"));
@@ -1654,7 +1657,102 @@ function renderMatchTable() {
       pickMatch(Number(item.dataset.i), item.dataset.sr);
     });
   });
+  wrap.querySelectorAll(".receiverFixBtn").forEach(btn => btn.addEventListener("click", () => {
+    openReceiverFix(Number(btn.dataset.i));
+  }));
   updateMatchFooter();
+}
+
+/**
+ * "연락처/주소 다름" 경고가 뜬 줄을 그 자리에서 바로 고치는 창.
+ * 왼쪽에 지금 요청서에 저장된 값, 오른쪽에 이번 엑셀에 적힌 값을 나란히 보여줘서
+ * 어느 쪽이 맞는지 비교한 뒤, 입력칸(기본값=요청서 값)을 고쳐서 저장합니다.
+ * 저장하면 그 요청서의 수령자 정보가 실제로 바뀌고(PATCH), 경고도 다시 계산돼서 없어집니다.
+ */
+function openReceiverFix(i) {
+  const m = MATCH_ROWS[i];
+  if (!m || !m.match) return;
+  const r = m.match;
+
+  let ov = document.getElementById("receiverFixModal");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "receiverFixModal";
+    ov.style.cssText = "position:fixed;inset:0;background:rgba(22,24,27,.55);display:flex;align-items:center;justify-content:center;z-index:99999;padding:16px;";
+    ov.innerHTML = `
+      <div style="background:var(--card);border-radius:14px;max-width:480px;width:100%;padding:20px;box-shadow:0 16px 50px rgba(0,0,0,.35);box-sizing:border-box;">
+        <div id="rfTitle" style="font-size:15.5px;font-weight:700;margin-bottom:12px;color:var(--ink);"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;font-size:11.5px;color:var(--ink-35);">
+          <div>요청서에 저장된 값</div>
+          <div>이번 엑셀 값 <button type="button" id="rfCopyFromExcel" style="appearance:none;border:0;background:none;color:var(--stamp-blue);cursor:pointer;font-size:11.5px;text-decoration:underline;padding:0;">→ 이 값 적용</button></div>
+        </div>
+        <label style="font-size:12px;font-weight:600;color:var(--ink-60);">연락처</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;margin:4px 0 10px;">
+          <input id="rfPhone" type="text" style="width:100%;padding:8px 9px;border:1px solid var(--rule-2);border-radius:7px;font-size:13.5px;background:#fff;color:var(--ink);box-sizing:border-box;">
+          <div id="rfExcelPhone" style="font-size:12.5px;color:var(--ink-35);"></div>
+        </div>
+        <label style="font-size:12px;font-weight:600;color:var(--ink-60);">주소</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;margin:4px 0 4px;">
+          <input id="rfAddr" type="text" style="width:100%;padding:8px 9px;border:1px solid var(--rule-2);border-radius:7px;font-size:13.5px;background:#fff;color:var(--ink);box-sizing:border-box;">
+          <div id="rfExcelAddr" style="font-size:12.5px;color:var(--ink-35);"></div>
+        </div>
+        <div id="rfErr" style="font-size:12px;color:var(--stamp-red);min-height:16px;margin:6px 0 8px;"></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button id="rfCancel" type="button" style="appearance:none;border:1px solid var(--rule-2);background:var(--card);color:var(--ink-60);border-radius:7px;padding:9px 14px;cursor:pointer;font-size:13px;">취소</button>
+          <button id="rfSave" type="button" style="appearance:none;border:0;background:var(--stamp-blue);color:#fff;border-radius:7px;padding:9px 16px;cursor:pointer;font-size:13px;font-weight:700;">저장</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+  }
+
+  const title = ov.querySelector("#rfTitle");
+  const phoneEl = ov.querySelector("#rfPhone");
+  const addrEl = ov.querySelector("#rfAddr");
+  const excelPhoneEl = ov.querySelector("#rfExcelPhone");
+  const excelAddrEl = ov.querySelector("#rfExcelAddr");
+  const errEl = ov.querySelector("#rfErr");
+  title.textContent = `${r.sr} · ${r.receiver.name || m.name} — 수령자 정보 수정`;
+  phoneEl.value = r.receiver.phone || "";
+  addrEl.value = r.receiver.address || "";
+  excelPhoneEl.textContent = m.phone || "-";
+  excelAddrEl.textContent = m.addr || "-";
+  errEl.textContent = "";
+  ov.style.display = "flex";
+  setTimeout(() => phoneEl.focus(), 30);
+
+  const onCopy = () => { phoneEl.value = m.phone || phoneEl.value; addrEl.value = m.addr || addrEl.value; };
+  const onSave = async () => {
+    const phone = phoneEl.value.trim();
+    const address = addrEl.value.trim();
+    try {
+      const res = await fetch(API_BASE + "/api/requests/" + encodeURIComponent(r.sr) + "/receiver", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, address }),
+      });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      // 화면 데이터도 바로 반영 — DATA 쪽과 이번 매칭 결과(m.match) 둘 다 갱신합니다.
+      r.receiver.phone = phone;
+      r.receiver.address = address;
+      const dr = DATA.find(x => x.sr === r.sr);
+      if (dr) { dr.receiver.phone = phone; dr.receiver.address = address; }
+      m.warns = computeMatchWarns(r, m);
+      close();
+      renderMatchTable();
+    } catch (e) { errEl.textContent = "저장에 실패했어요: " + (e.message || "연결 오류"); }
+  };
+  const onCancel = () => close();
+  const cleanup = () => {
+    copyBtn.removeEventListener("click", onCopy);
+    saveBtn.removeEventListener("click", onSave);
+    cancelBtn.removeEventListener("click", onCancel);
+  };
+  const close = () => { ov.style.display = "none"; cleanup(); };
+  const copyBtn = ov.querySelector("#rfCopyFromExcel");
+  const saveBtn = ov.querySelector("#rfSave");
+  const cancelBtn = ov.querySelector("#rfCancel");
+  copyBtn.addEventListener("click", onCopy);
+  saveBtn.addEventListener("click", onSave);
+  cancelBtn.addEventListener("click", onCancel);
 }
 
 function updateMatchFooter() {
